@@ -82,6 +82,10 @@ public class Xvnc extends BuildWrapper {
             return true;
         }
 
+        public String getHelpFile() {
+            return "/plugin/xvnc/help-projectConfig.html";
+        }
+
         public Xvnc newInstance(StaplerRequest req) throws FormException {
             return new Xvnc();
         }
