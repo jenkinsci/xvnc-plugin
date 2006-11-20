@@ -2,7 +2,7 @@
   <f:section title="Xvnc">
     <f:entry title="command line" help="/plugin/xvnc/help-commandline.html">
       <input class="setting-input" name="xvnc.xvnc"
-        type="text" value="${instance.xvnc}"/>
+        type="text" value="${descriptor.xvnc}"/>
     </f:entry>
   </f:section>
 </j:jelly>

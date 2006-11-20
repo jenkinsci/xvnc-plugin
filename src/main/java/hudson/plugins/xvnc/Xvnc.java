@@ -78,6 +78,7 @@ public class Xvnc extends BuildWrapper {
 
         public boolean configure(StaplerRequest req) throws FormException {
             req.bindParameters(this,"xvnc.");
+            save();
             return true;
         }
 
