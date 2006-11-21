@@ -70,6 +70,7 @@ public class Xvnc extends BuildWrapper {
 
         DescriptorImpl() {
             super(Xvnc.class);
+            load();
         }
 
         public String getDisplayName() {
