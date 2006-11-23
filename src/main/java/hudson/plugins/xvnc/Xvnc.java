@@ -43,6 +43,7 @@ public class Xvnc extends BuildWrapper {
             public boolean tearDown(Build build, BuildListener listener) throws IOException {
                 logger.println("Terminating xvnc");
                 proc.kill();
+                allocator.free(displayNumber);
 
                 return true;
             }
