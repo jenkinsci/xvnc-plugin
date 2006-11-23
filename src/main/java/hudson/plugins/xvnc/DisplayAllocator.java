@@ -15,7 +15,7 @@ final class DisplayAllocator {
     private final Set<Integer> numbers = new HashSet<Integer>();
 
     public synchronized int allocate() {
-        int i=0;
+        int i = 10;
         while(numbers.contains(i))
             i++;
         numbers.add(i);
