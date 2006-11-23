@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
@@ -20,7 +22,7 @@ import java.util.Map;
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends BuildWrapper {
-    public Environment setUp(Build build, Launcher launcher, BuildListener listener) throws IOException {
+    public Environment setUp(Build build, final Launcher launcher, BuildListener listener) throws IOException {
         final PrintStream logger = listener.getLogger();
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
@@ -28,11 +30,11 @@ public class Xvnc extends BuildWrapper {
             cmd = "vncserver :$DISPLAY_NUMBER";
 
         final int displayNumber = allocator.allocate();
-        cmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
+        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
         logger.println("Starting xvnc");
 
-        final Proc proc = launcher.launch(cmd, new String[0], logger, build.getProject().getWorkspace());
+        final Proc proc = launcher.launch(actualCmd, new String[0], logger, build.getProject().getWorkspace());
 
         return new Environment() {
             @Override
@@ -42,7 +44,14 @@ public class Xvnc extends BuildWrapper {
 
             public boolean tearDown(Build build, BuildListener listener) throws IOException {
                 logger.println("Terminating xvnc");
-                proc.kill();
+                Matcher m = Pattern.compile("([^ ]*vncserver ).*:\\d+.*").matcher(actualCmd);
+                if (m.matches()) {
+                    // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
+                    launcher.launch(m.group(1) + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
+                } else {
+                    // Assume it can be shut down by being killed.
+                    proc.kill();
+                }
                 allocator.free(displayNumber);
 
                 return true;
