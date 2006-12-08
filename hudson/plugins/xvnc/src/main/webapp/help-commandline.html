@@ -1,0 +1,11 @@
+<div>
+  Configure the Xvnc command line to invoke. Leave it empty to let Hudson figures things out.
+  <br>
+  Xvnc must be installed on the system
+  <br>
+  A typical option looks like "<tt>/path/to/vncserver :$DISPLAY_NUMBER -geometry 800x600</tt>"
+  See <a href="http://www.realvnc.com/products/free/4.1/man/vncserver.html">the man page</a>
+  for more details. Hudson remembers what display numbers are in use, and when it launches
+  a new vncserver process, it picks the available number and replace <tt>$DISPLAY_NUMBER</tt>
+  by that number.
+</div>
