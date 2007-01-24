@@ -10,7 +10,7 @@
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Hudson Xvnc plugin</name>
-  <version>1.2</version>
+  <version>1.3-SNAPSHOT</version>
 
   <!-- if you need to rely on somesnapshot
   <dependencies>
@@ -28,8 +28,4 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>-->
-
-  <scm>
-    <tag>xvnc-1_2</tag>
-  </scm>
 </project>
