@@ -35,6 +35,20 @@ public class Xvnc extends BuildWrapper {
         logger.println("Starting xvnc");
 
         final Proc proc = launcher.launch(actualCmd, new String[0], logger, build.getProject().getWorkspace());
+        Matcher m = Pattern.compile("([^ ]*vncserver ).*:\\d+.*").matcher(actualCmd);
+        final String vncserverCommand;
+        if (m.matches()) {
+            // Command just started the server; -kill will stop it.
+            vncserverCommand = m.group(1);
+            int exit = proc.join();
+            if (exit != 0) {
+                // Do not release it; it may be "stuck" until cleaned up by an administrator.
+                //allocator.free(displayNumber);
+                throw new IOException("Failed to run '" + actualCmd + "' (exit code " + exit + ")");
+            }
+        } else {
+            vncserverCommand = null;
+        }
 
         return new Environment() {
             @Override
@@ -44,10 +58,9 @@ public class Xvnc extends BuildWrapper {
 
             public boolean tearDown(Build build, BuildListener listener) throws IOException {
                 logger.println("Terminating xvnc");
-                Matcher m = Pattern.compile("([^ ]*vncserver ).*:\\d+.*").matcher(actualCmd);
-                if (m.matches()) {
+                if (vncserverCommand != null) {
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch(m.group(1) + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
+                    launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
                 } else {
                     // Assume it can be shut down by being killed.
                     proc.kill();
