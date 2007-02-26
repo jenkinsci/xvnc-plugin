@@ -44,7 +44,8 @@ public class Xvnc extends BuildWrapper {
             if (exit != 0) {
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
-                throw new IOException("Failed to run '" + actualCmd + "' (exit code " + exit + ")");
+                throw new IOException("Failed to run '" + actualCmd + "' (exit code " + exit + "), blacklisting display #" + displayNumber +
+                                      "; consider adding to your Hudson launch script: killall Xvnc; rm -fv /tmp/.X*-lock /tmp/.X11-unix/X*");
             }
         } else {
             vncserverCommand = null;
