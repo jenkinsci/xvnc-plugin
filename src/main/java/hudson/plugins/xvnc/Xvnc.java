@@ -26,10 +26,11 @@ public class Xvnc extends BuildWrapper {
         final PrintStream logger = listener.getLogger();
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
+        int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
         if(cmd==null)
             cmd = "vncserver :$DISPLAY_NUMBER";
 
-        final int displayNumber = allocator.allocate();
+        final int displayNumber = allocator.allocate(baseDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
         logger.println("Starting xvnc");
@@ -91,6 +92,11 @@ public class Xvnc extends BuildWrapper {
          * If null, the default will kick in.
          */
         public String xvnc;
+
+        /*
+         * Base X display number. 
+         */
+        public int baseDisplayNumber = 10;
 
         DescriptorImpl() {
             super(Xvnc.class);
