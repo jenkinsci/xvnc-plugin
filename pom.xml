@@ -10,6 +10,10 @@
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Hudson Xvnc plugin</name>
-  <version>1.3-SNAPSHOT</version>
+  <version>1.3</version>
   <url>http://hudson.gotdns.com/wiki/display/HUDSON/Xvnc+Plugin</url>
+
+  <scm>
+    <tag>xvnc-1_3</tag>
+  </scm>
 </project>
