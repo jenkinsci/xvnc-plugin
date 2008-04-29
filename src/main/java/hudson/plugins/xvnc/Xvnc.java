@@ -6,6 +6,7 @@ import hudson.Util;
 import hudson.model.Build;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
+import hudson.model.AbstractBuild;
 import hudson.tasks.BuildWrapper;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -22,7 +23,7 @@ import java.util.regex.Pattern;
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends BuildWrapper {
-    public Environment setUp(Build build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
@@ -58,7 +59,7 @@ public class Xvnc extends BuildWrapper {
                 env.put("DISPLAY",":"+displayNumber);
             }
 
-            public boolean tearDown(Build build, BuildListener listener) throws IOException, InterruptedException {
+            public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
                 logger.println("Terminating xvnc");
                 if (vncserverCommand != null) {
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
