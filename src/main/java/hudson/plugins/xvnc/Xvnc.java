@@ -3,12 +3,12 @@ package hudson.plugins.xvnc;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
-import hudson.model.Build;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
-import hudson.model.AbstractBuild;
 import hudson.tasks.BuildWrapper;
-import org.kohsuke.stapler.StaplerRequest;
+import hudson.tasks.BuildWrapperDescriptor;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -17,12 +17,20 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.kohsuke.stapler.StaplerRequest;
+
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
  * 
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends BuildWrapper {
+
+    /**
+     * Whether or not to take a screenshot upon completion of the build.
+     */
+    public boolean takeScreenshot;
+    
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
 
@@ -62,6 +70,10 @@ public class Xvnc extends BuildWrapper {
             public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
                 logger.println("Terminating xvnc");
                 if (vncserverCommand != null) {
+                    if (takeScreenshot) {
+                        logger.println("Taking screenshot.");
+                        launcher.launch("import -display :" + displayNumber + " screenshot.jpg", new String[0], logger, build.getProject().getWorkspace()).join();
+                    }
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
                 } else {
@@ -86,7 +98,8 @@ public class Xvnc extends BuildWrapper {
     
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
-    public static final class DescriptorImpl extends Descriptor<BuildWrapper> {
+    public static final class DescriptorImpl extends BuildWrapperDescriptor {
+        
         /**
          * xvnc command line. This can include macro.
          *
@@ -119,7 +132,13 @@ public class Xvnc extends BuildWrapper {
         }
 
         public Xvnc newInstance(StaplerRequest req) throws FormException {
-            return new Xvnc();
+            Xvnc x = new Xvnc();
+            req.bindParameters(x, "xvnc.");
+            return x;
+        }
+
+        public boolean isApplicable(AbstractProject<?, ?> item) {
+            return true;
         }
     }
 }
