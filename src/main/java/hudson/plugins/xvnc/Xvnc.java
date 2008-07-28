@@ -72,7 +72,7 @@ public class Xvnc extends BuildWrapper {
                 if (vncserverCommand != null) {
                     if (takeScreenshot) {
                         logger.println("Taking screenshot.");
-                        launcher.launch("import -display :" + displayNumber + " screenshot.jpg", new String[0], logger, build.getProject().getWorkspace()).join();
+                        launcher.launch("import -window root -display :" + displayNumber + " screenshot.jpg", new String[0], logger, build.getProject().getWorkspace()).join();
                     }
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
