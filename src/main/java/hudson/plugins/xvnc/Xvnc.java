@@ -82,7 +82,7 @@ public class Xvnc extends BuildWrapper {
                         logger.println("Taking screenshot.");
                         launcher.launch("import -window root -display :" + displayNumber + " "+FILENAME_SCREENSHOT, new String[0], logger, ws).join();
                         
-                        ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir));
+                        ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                      
                     }
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
