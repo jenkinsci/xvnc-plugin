@@ -1,5 +1,6 @@
 package hudson.plugins.xvnc;
 
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
@@ -10,6 +11,7 @@ import hudson.model.Descriptor;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
@@ -30,6 +32,8 @@ public class Xvnc extends BuildWrapper {
      * Whether or not to take a screenshot upon completion of the build.
      */
     public boolean takeScreenshot;
+    
+    private static final String FILENAME_SCREENSHOT = "screenshot.jpg"; 
     
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
@@ -71,8 +75,15 @@ public class Xvnc extends BuildWrapper {
                 logger.println("Terminating xvnc");
                 if (vncserverCommand != null) {
                     if (takeScreenshot) {
+                        FilePath ws = build.getProject().getWorkspace();
+                        File artifactsDir = build.getArtifactsDir();
+                        artifactsDir.mkdirs();
+                        
                         logger.println("Taking screenshot.");
-                        launcher.launch("import -window root -display :" + displayNumber + " screenshot.jpg", new String[0], logger, build.getProject().getWorkspace()).join();
+                        launcher.launch("import -window root -display :" + displayNumber + " "+FILENAME_SCREENSHOT, new String[0], logger, ws).join();
+                        
+                        ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir));
+                     
                     }
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
