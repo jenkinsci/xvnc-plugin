@@ -72,7 +72,6 @@ public class Xvnc extends BuildWrapper {
             }
 
             public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-                logger.println("Terminating xvnc");
                 if (vncserverCommand != null) {
                     if (takeScreenshot) {
                         FilePath ws = build.getProject().getWorkspace();
@@ -85,9 +84,11 @@ public class Xvnc extends BuildWrapper {
                         ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                      
                     }
+                    logger.println("Terminating xvnc");
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
                 } else {
+                    logger.println("Terminating xvnc");
                     // Assume it can be shut down by being killed.
                     proc.kill();
                 }
