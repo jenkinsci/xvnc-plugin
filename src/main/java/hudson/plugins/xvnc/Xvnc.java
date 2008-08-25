@@ -20,6 +20,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.DataBoundConstructor;
+import net.sf.json.JSONObject;
 
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
@@ -33,8 +35,13 @@ public class Xvnc extends BuildWrapper {
      */
     public boolean takeScreenshot;
     
-    private static final String FILENAME_SCREENSHOT = "screenshot.jpg"; 
-    
+    private static final String FILENAME_SCREENSHOT = "screenshot.jpg";
+
+    @DataBoundConstructor
+    public Xvnc(boolean takeScreenshot) {
+        this.takeScreenshot = takeScreenshot;
+    }
+
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
 
@@ -141,12 +148,6 @@ public class Xvnc extends BuildWrapper {
 
         public String getHelpFile() {
             return "/plugin/xvnc/help-projectConfig.html";
-        }
-
-        public Xvnc newInstance(StaplerRequest req) throws FormException {
-            Xvnc x = new Xvnc();
-            req.bindParameters(x, "xvnc.");
-            return x;
         }
 
         public boolean isApplicable(AbstractProject<?, ?> item) {
