@@ -58,7 +58,7 @@ public class Xvnc extends BuildWrapper {
         final int displayNumber = allocator.allocate(baseDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
-        logger.println("Starting xvnc");
+        logger.println(Messages.Xvnc_STARTING());
 
         final Proc proc = launcher.launch(actualCmd, new String[0], logger, build.getProject().getWorkspace());
         Matcher m = Pattern.compile("([^ ]*vncserver ).*:\\d+.*").matcher(actualCmd);
@@ -90,17 +90,17 @@ public class Xvnc extends BuildWrapper {
                         File artifactsDir = build.getArtifactsDir();
                         artifactsDir.mkdirs();
                         
-                        logger.println("Taking screenshot.");
+                        logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
                         launcher.launch("import -window root -display :" + displayNumber + " "+FILENAME_SCREENSHOT, new String[0], logger, ws).join();
                         
                         ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                      
                     }
-                    logger.println("Terminating xvnc.");
+                    logger.println(Messages.Xvnc_TERMINATING());
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
                 } else {
-                    logger.println("Terminating xvnc.");
+                    logger.println(Messages.Xvnc_TERMINATING());
                     // Assume it can be shut down by being killed.
                     proc.kill();
                 }
