@@ -4,6 +4,7 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
+import hudson.util.FormFieldValidator;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
@@ -21,7 +22,11 @@ import java.util.regex.Pattern;
 
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.QueryParameter;
 import net.sf.json.JSONObject;
+
+import javax.servlet.ServletException;
 
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
@@ -152,6 +157,17 @@ public class Xvnc extends BuildWrapper {
 
         public boolean isApplicable(AbstractProject<?, ?> item) {
             return true;
+        }
+
+        public void doCheckCommandLine(StaplerRequest req, StaplerResponse rsp, final @QueryParameter("value") String value) throws IOException, ServletException {
+            new FormFieldValidator(req,rsp,false) {
+                protected void check() throws IOException, ServletException {
+                    if(value.contains("$DISPLAY_NUMBER"))
+                        ok();
+                    else
+                        warningWithMarkup(Messages.Xvnc_SHOULD_INCLUDE_DISPLAY_NUMBER());
+                }
+            }.process();
         }
     }
 }
