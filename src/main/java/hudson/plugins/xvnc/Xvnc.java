@@ -1,17 +1,17 @@
 package hudson.plugins.xvnc;
 
+import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
-import hudson.util.FormFieldValidator;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
-import hudson.model.Descriptor;
+import hudson.model.Hudson;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
-
+import hudson.util.FormValidation;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -19,14 +19,10 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerResponse;
-import org.kohsuke.stapler.QueryParameter;
 import net.sf.json.JSONObject;
-
-import javax.servlet.ServletException;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
@@ -47,9 +43,11 @@ public class Xvnc extends BuildWrapper {
         this.takeScreenshot = takeScreenshot;
     }
 
+    @Override
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
 
+        DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
         if(cmd==null)
@@ -83,6 +81,7 @@ public class Xvnc extends BuildWrapper {
                 env.put("DISPLAY",":"+displayNumber);
             }
 
+            @Override
             public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
                 if (vncserverCommand != null) {
                     if (takeScreenshot) {
@@ -111,17 +110,12 @@ public class Xvnc extends BuildWrapper {
         };
     }
 
-    public Descriptor<BuildWrapper> getDescriptor() {
-        return DESCRIPTOR;
-    }
-
     /**
      * Manages display numbers in use.
      */
     private static final DisplayAllocator allocator = new DisplayAllocator();
     
-    public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
-
+    @Extension
     public static final class DescriptorImpl extends BuildWrapperDescriptor {
         
         /**
@@ -136,7 +130,7 @@ public class Xvnc extends BuildWrapper {
          */
         public int baseDisplayNumber = 10;
 
-        DescriptorImpl() {
+        public DescriptorImpl() {
             super(Xvnc.class);
             load();
         }
@@ -145,12 +139,15 @@ public class Xvnc extends BuildWrapper {
             return "Run Xvnc during build";
         }
 
-        public boolean configure(StaplerRequest req) throws FormException {
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+            // XXX is this now the right style?
             req.bindParameters(this,"xvnc.");
             save();
             return true;
         }
 
+        @Override
         public String getHelpFile() {
             return "/plugin/xvnc/help-projectConfig.html";
         }
@@ -159,15 +156,12 @@ public class Xvnc extends BuildWrapper {
             return true;
         }
 
-        public void doCheckCommandLine(StaplerRequest req, StaplerResponse rsp, final @QueryParameter("value") String value) throws IOException, ServletException {
-            new FormFieldValidator(req,rsp,false) {
-                protected void check() throws IOException, ServletException {
-                    if(value.contains("$DISPLAY_NUMBER"))
-                        ok();
-                    else
-                        warningWithMarkup(Messages.Xvnc_SHOULD_INCLUDE_DISPLAY_NUMBER());
-                }
-            }.process();
+        public FormValidation doCheckCommandLine(@QueryParameter String value) {
+            if (Util.nullify(value) == null || value.contains("$DISPLAY_NUMBER")) {
+                return FormValidation.ok();
+            } else {
+                return FormValidation.warningWithMarkup(Messages.Xvnc_SHOULD_INCLUDE_DISPLAY_NUMBER());
+            }
         }
     }
 }
