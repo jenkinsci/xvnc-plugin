@@ -53,6 +53,12 @@ public class Xvnc extends BuildWrapper {
         if(cmd==null)
             cmd = "vncserver :$DISPLAY_NUMBER";
 
+        return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 3);
+    }
+
+    private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,
+            String cmd, int baseDisplayNumber, int retries) throws IOException, InterruptedException {
+
         final int displayNumber = allocator.allocate(baseDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
@@ -66,10 +72,15 @@ public class Xvnc extends BuildWrapper {
             vncserverCommand = m.group(1);
             int exit = proc.join();
             if (exit != 0) {
+                String message = "Failed to run \'" + actualCmd + "\' (exit code " + exit + "), blacklisting display #" + displayNumber +
+                        "; consider adding to your Hudson launch script: killall Xvnc Xrealvnc; rm -fv /tmp/.X*-lock /tmp/.X11-unix/X*";
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
-                throw new IOException("Failed to run '" + actualCmd + "' (exit code " + exit + "), blacklisting display #" + displayNumber +
-                                      "; consider adding to your Hudson launch script: killall Xvnc Xrealvnc; rm -fv /tmp/.X*-lock /tmp/.X11-unix/X*");
+                if (retries > 0) {
+                    return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, retries - 1);
+                } else {
+                    throw new IOException(message);
+                }
             }
         } else {
             vncserverCommand = null;
