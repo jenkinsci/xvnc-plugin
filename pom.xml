@@ -11,5 +11,5 @@
   <packaging>hpi</packaging>
   <name>Hudson Xvnc plugin</name>
   <version>1.8-SNAPSHOT</version>
-  <url>http://hudson.gotdns.com/wiki/display/HUDSON/Xvnc+Plugin</url>
+  <url>http://wiki.hudson-ci.org/display/HUDSON/Xvnc+Plugin</url>
 </project>
