@@ -70,6 +70,7 @@ public class Xvnc extends BuildWrapper {
             vncserverCommand = cmds[0];
             int exit = proc.join();
             if (exit != 0) {
+                // XXX I18N
                 String message = "Failed to run \'" + actualCmd + "\' (exit code " + exit + "), blacklisting display #" + displayNumber +
                         "; consider adding to your Hudson launch script: killall Xvnc Xrealvnc; rm -fv /tmp/.X*-lock /tmp/.X11-unix/X*";
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
@@ -142,6 +143,7 @@ public class Xvnc extends BuildWrapper {
         }
 
         public String getDisplayName() {
+            // XXX I18N
             return "Run Xvnc during build";
         }
 
