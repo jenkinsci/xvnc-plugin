@@ -17,8 +17,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -64,12 +62,12 @@ public class Xvnc extends BuildWrapper {
 
         logger.println(Messages.Xvnc_STARTING());
 
-        final Proc proc = launcher.launch(actualCmd, new String[0], logger, build.getProject().getWorkspace());
-        Matcher m = Pattern.compile("([^ ]*vncserver ).*:\\d+.*").matcher(actualCmd);
+        String[] cmds = Util.tokenize(actualCmd);
+        final Proc proc = launcher.launch().cmds(cmds).stdout(logger).pwd(build.getWorkspace()).start();
         final String vncserverCommand;
-        if (m.matches()) {
+        if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
             // Command just started the server; -kill will stop it.
-            vncserverCommand = m.group(1);
+            vncserverCommand = cmds[0];
             int exit = proc.join();
             if (exit != 0) {
                 String message = "Failed to run \'" + actualCmd + "\' (exit code " + exit + "), blacklisting display #" + displayNumber +
@@ -96,19 +94,20 @@ public class Xvnc extends BuildWrapper {
             public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
                 if (vncserverCommand != null) {
                     if (takeScreenshot) {
-                        FilePath ws = build.getProject().getWorkspace();
+                        FilePath ws = build.getWorkspace();
                         File artifactsDir = build.getArtifactsDir();
                         artifactsDir.mkdirs();
                         
                         logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
-                        launcher.launch("import -window root -display :" + displayNumber + " "+FILENAME_SCREENSHOT, new String[0], logger, ws).join();
+                        launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
+                                stdout(logger).pwd(ws).join();
                         
                         ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                      
                     }
                     logger.println(Messages.Xvnc_TERMINATING());
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch(vncserverCommand + "-kill :" + displayNumber, new String[0], logger, build.getProject().getWorkspace()).join();
+                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).stdout(logger).pwd(build.getWorkspace()).join();
                 } else {
                     logger.println(Messages.Xvnc_TERMINATING());
                     // Assume it can be shut down by being killed.
