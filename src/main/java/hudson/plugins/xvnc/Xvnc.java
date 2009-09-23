@@ -92,24 +92,20 @@ public class Xvnc extends BuildWrapper {
 
             @Override
             public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
+                if (takeScreenshot) {
+                    FilePath ws = build.getWorkspace();
+                    File artifactsDir = build.getArtifactsDir();
+                    artifactsDir.mkdirs();
+                    logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
+                    launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
+                            stdout(logger).pwd(ws).join();
+                    ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
+                }
+                logger.println(Messages.Xvnc_TERMINATING());
                 if (vncserverCommand != null) {
-                    if (takeScreenshot) {
-                        FilePath ws = build.getWorkspace();
-                        File artifactsDir = build.getArtifactsDir();
-                        artifactsDir.mkdirs();
-                        
-                        logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
-                        launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                                stdout(logger).pwd(ws).join();
-                        
-                        ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
-                     
-                    }
-                    logger.println(Messages.Xvnc_TERMINATING());
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
                     launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).stdout(logger).pwd(build.getWorkspace()).join();
                 } else {
-                    logger.println(Messages.Xvnc_TERMINATING());
                     // Assume it can be shut down by being killed.
                     proc.kill();
                 }
