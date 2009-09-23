@@ -3,10 +3,10 @@
   <parent>
     <groupId>org.jvnet.hudson.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>1.318</version>
+    <version>1.324</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-  
+
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Hudson Xvnc plugin</name>
