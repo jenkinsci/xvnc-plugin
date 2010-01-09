@@ -12,6 +12,13 @@
   <name>Hudson Xvnc plugin</name>
   <version>1.8-SNAPSHOT</version>
   <url>http://wiki.hudson-ci.org/display/HUDSON/Xvnc+Plugin</url>
+  <developers>
+    <developer>
+        <id>jglick</id>
+        <name>Jesse Glick</name>
+        <email>jesse.glick@sun.com</email>
+    </developer>
+  </developers>
   <build>
       <plugins>
           <plugin>
