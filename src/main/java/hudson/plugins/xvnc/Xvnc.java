@@ -45,13 +45,16 @@ public class Xvnc extends BuildWrapper {
     @Override
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
+        DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
 
         // skip xvnc execution
         if (build.getBuiltOn().getAssignedLabels().contains(Label.get("noxvnc"))
         ||  build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class)!=null)
             return new Environment(){};
+        
+        if (DESCRIPTOR.skipOnWindows && !launcher.isUnix())
+            return new Environment(){};
 
-        DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
         if(cmd==null)
@@ -143,6 +146,11 @@ public class Xvnc extends BuildWrapper {
          */
         public int baseDisplayNumber = 10;
 
+        /**
+         * If true, skip xvnc launch on all Windows slaves.
+         */
+        public boolean skipOnWindows = true;
+
         public DescriptorImpl() {
             super(Xvnc.class);
             load();
@@ -159,11 +167,6 @@ public class Xvnc extends BuildWrapper {
             req.bindJSON(this,json);
             save();
             return true;
-        }
-
-        @Override
-        public String getHelpFile() {
-            return "/plugin/xvnc/help-projectConfig.html";
         }
 
         public boolean isApplicable(AbstractProject<?, ?> item) {

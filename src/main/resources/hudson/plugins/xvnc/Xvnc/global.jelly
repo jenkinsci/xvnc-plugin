@@ -6,5 +6,9 @@
     <f:entry title="Base display number" field="baseDisplayNumber">
       <f:textbox />
     </f:entry>
+    <f:entry field="skipOnWindows">
+      <f:checkbox />
+      <label class="attach-previous">${%Skip Execution on Windows}</label>
+    </f:entry>
   </f:section>
 </j:jelly>
