@@ -156,7 +156,7 @@ public class Xvnc extends BuildWrapper {
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             // XXX is this now the right style?
-            req.bindParameters(this,"xvnc.");
+            req.bindJSON(this,json);
             save();
             return true;
         }
@@ -170,7 +170,15 @@ public class Xvnc extends BuildWrapper {
             return true;
         }
 
-        public FormValidation doCheckCommandLine(@QueryParameter String value) {
+        public String getCommandline() {
+            return xvnc;
+        }
+
+        public void setCommandline(String value) {
+            this.xvnc = value;
+        }
+
+        public FormValidation doCheckCommandline(@QueryParameter String value) {
             if (Util.nullify(value) == null || value.contains("$DISPLAY_NUMBER")) {
                 return FormValidation.ok();
             } else {
