@@ -9,6 +9,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Hudson;
+import hudson.model.Label;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
@@ -44,6 +45,11 @@ public class Xvnc extends BuildWrapper {
     @Override
     public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
+
+        // skip xvnc execution
+        if (build.getBuiltOn().getAssignedLabels().contains(Label.get("noxvnc"))
+        ||  build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class)!=null)
+            return new Environment(){};
 
         DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
