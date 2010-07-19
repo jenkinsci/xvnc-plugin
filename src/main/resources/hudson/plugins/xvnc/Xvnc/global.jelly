@@ -10,5 +10,9 @@
       <f:checkbox />
       <label class="attach-previous">${%Skip Execution on Windows}</label>
     </f:entry>
+    <f:entry field="cleanUp">
+      <f:checkbox/>
+      <label class="attach-previous">${%Clean up before start}</label>
+    </f:entry>
   </f:section>
 </j:jelly>

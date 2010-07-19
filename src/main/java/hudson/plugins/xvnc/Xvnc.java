@@ -8,8 +8,10 @@ import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Computer;
 import hudson.model.Hudson;
 import hudson.model.Label;
+import hudson.model.Node;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
@@ -18,6 +20,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Map;
+import java.util.WeakHashMap;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -56,6 +59,10 @@ public class Xvnc extends BuildWrapper {
         if (DESCRIPTOR.skipOnWindows && !launcher.isUnix()) {
             return new Environment(){};
         }
+        
+        if (DESCRIPTOR.cleanUp) {
+            maybeCleanUp(launcher, listener);
+        }
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
@@ -84,7 +91,7 @@ public class Xvnc extends BuildWrapper {
             if (exit != 0) {
                 // XXX I18N
                 String message = "Failed to run \'" + actualCmd + "\' (exit code " + exit + "), blacklisting display #" + displayNumber +
-                        "; consider adding to your Hudson launch script: killall Xvnc Xrealvnc; rm -fv /tmp/.X*-lock /tmp/.X11-unix/X*";
+                        "; consider checking the \"Clean up before start\" option";
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
                 if (retries > 0) {
@@ -133,6 +140,28 @@ public class Xvnc extends BuildWrapper {
      * Manages display numbers in use.
      */
     private static final DisplayAllocator allocator = new DisplayAllocator();
+
+    /**
+     * Whether {@link #maybeCleanUp} has already been run on a given node.
+     */
+    private static final Map<Node,Boolean> cleanedUpOn = new WeakHashMap<Node,Boolean>();
+    
+    // XXX I18N
+    private static synchronized void maybeCleanUp(Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        Node node = Computer.currentComputer().getNode();
+        if (cleanedUpOn.put(node, true) != null) {
+            return;
+        }
+        if (!launcher.isUnix()) {
+            listener.error("Clean up not currently implemented for non-Unix nodes; skipping");
+            return;
+        }
+        PrintStream logger = listener.getLogger();
+        // ignore any error return codes
+        launcher.launch().stdout(logger).cmds("pkill", "Xvnc").join();
+        launcher.launch().stdout(logger).cmds("pkill", "Xrealvnc").join();
+        launcher.launch().stdout(logger).cmds("sh", "-c", "rm -f /tmp/.X*-lock /tmp/.X11-unix/X*").join();
+    }
     
     @Extension
     public static final class DescriptorImpl extends BuildWrapperDescriptor {
@@ -153,6 +182,11 @@ public class Xvnc extends BuildWrapper {
          * If true, skip xvnc launch on all Windows slaves.
          */
         public boolean skipOnWindows = true;
+        
+        /**
+         * If true, try to clean up old processes and locks when first run.
+         */
+        public boolean cleanUp = false;
 
         public DescriptorImpl() {
             super(Xvnc.class);
