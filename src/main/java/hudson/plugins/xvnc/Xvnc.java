@@ -49,16 +49,19 @@ public class Xvnc extends BuildWrapper {
 
         // skip xvnc execution
         if (build.getBuiltOn().getAssignedLabels().contains(Label.get("noxvnc"))
-        ||  build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class)!=null)
+                || build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class) != null) {
             return new Environment(){};
+        }
         
-        if (DESCRIPTOR.skipOnWindows && !launcher.isUnix())
+        if (DESCRIPTOR.skipOnWindows && !launcher.isUnix()) {
             return new Environment(){};
+        }
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
-        if(cmd==null)
+        if (cmd == null) {
             cmd = "vncserver :$DISPLAY_NUMBER";
+        }
 
         return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 3);
     }
@@ -157,8 +160,7 @@ public class Xvnc extends BuildWrapper {
         }
 
         public String getDisplayName() {
-            // XXX I18N
-            return "Run Xvnc during build";
+            return Messages.description();
         }
 
         @Override
