@@ -10,7 +10,7 @@
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Hudson Xvnc plugin</name>
-  <version>1.10-SNAPSHOT</version>
+  <version>1.10</version>
   <url>http://wiki.hudson-ci.org/display/HUDSON/Xvnc+Plugin</url>
   <developers>
     <developer>
@@ -42,4 +42,10 @@
           </plugin>
       </plugins>
   </build>
+
+  <scm>
+    <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/tags/xvnc-1.10</connection>
+    <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/tags/xvnc-1.10</developerConnection>
+    <url>https://hudson.dev.java.net/source/browse/hudson/tags/xvnc-1.10</url>
+  </scm>
 </project>
