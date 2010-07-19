@@ -114,7 +114,7 @@ public class Xvnc extends BuildWrapper {
                 logger.println(Messages.Xvnc_TERMINATING());
                 if (vncserverCommand != null) {
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).stdout(logger).pwd(build.getWorkspace()).join();
+                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).stdout(logger).join();
                 } else {
                     // Assume it can be shut down by being killed.
                     proc.kill();
