@@ -67,7 +67,7 @@ public class Xvnc extends BuildWrapper {
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
         if (cmd == null) {
-            cmd = "vncserver :$DISPLAY_NUMBER";
+            cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
         return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 3);
