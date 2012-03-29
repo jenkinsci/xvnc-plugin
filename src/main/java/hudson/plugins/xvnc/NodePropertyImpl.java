@@ -19,7 +19,7 @@ public class NodePropertyImpl extends NodeProperty<Node> {
     public static class DescriptorImpl extends NodePropertyDescriptor {
         @Override
         public String getDisplayName() {
-            return "Disable Xvnc execuion on this node";
+            return "Disable Xvnc execution on this node";
         }
     }
 }
