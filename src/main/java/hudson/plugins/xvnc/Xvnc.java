@@ -70,7 +70,7 @@ public class Xvnc extends BuildWrapper {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
-        return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 3);
+        return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 10);
     }
 
     private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,

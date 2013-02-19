@@ -17,7 +17,7 @@ final class DisplayAllocator {
 
     public synchronized int allocate(int baseDisplayNumber) {
         int i = baseDisplayNumber; 
-        int randomIncrement = new Random().nextInt(1000);
+        int randomIncrement = new Random().nextInt(100);
         while(numbers.contains(i))
             i += randomIncrement;
         numbers.add(i);
