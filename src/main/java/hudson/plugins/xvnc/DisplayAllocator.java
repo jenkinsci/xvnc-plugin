@@ -16,10 +16,11 @@ final class DisplayAllocator {
     private final Set<Integer> numbers = new HashSet<Integer>();
 
     public synchronized int allocate(int baseDisplayNumber) {
-        int i = baseDisplayNumber; 
-        int randomIncrement = new Random().nextInt(100);
-        while(numbers.contains(i))
-            i += randomIncrement;
+        int i;
+        do {
+            int randomIncrement = new Random().nextInt(10000);
+            i = baseDisplayNumber + randomIncrement;
+        } while(numbers.contains(i));
         numbers.add(i);
         return i;
     }
