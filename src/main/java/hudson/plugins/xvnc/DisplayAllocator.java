@@ -1,5 +1,6 @@
 package hudson.plugins.xvnc;
 
+import java.util.Random;
 import java.util.Set;
 import java.util.HashSet;
 
@@ -16,8 +17,9 @@ final class DisplayAllocator {
 
     public synchronized int allocate(int baseDisplayNumber) {
         int i = baseDisplayNumber; 
+        int randomIncrement = new Random().nextInt(1000);
         while(numbers.contains(i))
-            i++;
+            i += randomIncrement;
         numbers.add(i);
         return i;
     }
