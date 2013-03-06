@@ -10,24 +10,41 @@ import java.util.HashSet;
  * @author Kohsuke Kawaguchi
  */
 final class DisplayAllocator {
-    private static final int MAX_DISPLAY_NUMBER = 99;
     /**
      * Display numbers in use.
      */
     private final Set<Integer> numbers = new HashSet<Integer>();
+    private final int minDisplayNumber;
+    private final int maxDisplayNumber;
 
-    private getRandomValue(final int min, final int max) {
-        int range = (max + 1) - min;
-        return min + (new Random().nextInt(range))
+    public DisplayAllocator(final int minDisplayNumber, final int maxDisplayNumber) {
+        this.minDisplayNumber = minDisplayNumber;
+        this.maxDisplayNumber = maxDisplayNumber;
     }
 
-    public synchronized int allocate(int baseDisplayNumber) {
+    private final int getRandomValue() {
+        return minDisplayNumber + (new Random().nextInt(getRange()));
+    }
+
+    private int getRange() {
+        return (maxDisplayNumber + 1) - minDisplayNumber;
+    }
+
+    public synchronized int allocate() {
+        if (noNumbersLeft()) {
+            throw new RuntimeException("All available display numbers are allocated or " +
+                    "blacklisted: " + numbers.toString());
+        }
         int number;
         do {
-            number = baseDisplayNumber + ;
+            number = getRandomValue();
         } while(numbers.contains(number));
         numbers.add(number);
         return number;
+    }
+
+    private boolean noNumbersLeft() {
+        return numbers.size() >= getRange();
     }
 
     public synchronized void free(int n) {
