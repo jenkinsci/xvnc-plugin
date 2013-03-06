@@ -10,7 +10,6 @@ import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Computer;
 import hudson.model.Hudson;
-import hudson.model.Label;
 import hudson.model.Node;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
@@ -21,6 +20,7 @@ import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -51,7 +51,7 @@ public class Xvnc extends BuildWrapper {
         DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
 
         // skip xvnc execution
-        if (build.getBuiltOn().getAssignedLabels().contains(Label.get("noxvnc"))
+        if (build.getBuiltOn().getAssignedLabels().contains(Jenkins.getInstance().getLabelAtom("noxvnc"))
                 || build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class) != null) {
             return new Environment(){};
         }
