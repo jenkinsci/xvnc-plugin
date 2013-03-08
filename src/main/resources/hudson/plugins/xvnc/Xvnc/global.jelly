@@ -3,7 +3,10 @@
     <f:entry title="Command line" field="commandline">
       <f:textbox />
     </f:entry>
-    <f:entry title="Base display number" field="baseDisplayNumber">
+    <f:entry title="Minimum display number" field="minDisplayNumber">
+      <f:textbox />
+    </f:entry>
+    <f:entry title="Maximum display number" field="maxDisplayNumber">
       <f:textbox />
     </f:entry>
     <f:entry field="skipOnWindows">
