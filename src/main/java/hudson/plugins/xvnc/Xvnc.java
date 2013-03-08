@@ -10,7 +10,6 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
 import hudson.model.Hudson;
-import hudson.model.Label;
 import hudson.model.Node;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
@@ -22,7 +21,7 @@ import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
-
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -58,7 +57,7 @@ public class Xvnc extends BuildWrapper {
         DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
 
         // skip xvnc execution
-        if (build.getBuiltOn().getAssignedLabels().contains(Label.get("noxvnc"))
+        if (build.getBuiltOn().getAssignedLabels().contains(Jenkins.getInstance().getLabelAtom("noxvnc"))
                 || build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class) != null) {
             return new Environment(){};
         }
@@ -89,7 +88,9 @@ public class Xvnc extends BuildWrapper {
         logger.println(Messages.Xvnc_STARTING());
 
         String[] cmds = Util.tokenize(actualCmd);
-        final Proc proc = launcher.launch().cmds(cmds).stdout(logger).pwd(build.getWorkspace()).start();
+        final FilePath xauthority = build.getWorkspace().createTempFile(".Xauthority-", "");
+        final Map<String,String> xauthorityEnv = Collections.singletonMap("XAUTHORITY", xauthority.getRemote());
+        final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(build.getWorkspace()).start();
         final String vncserverCommand;
         if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
             // Command just started the server; -kill will stop it.
@@ -115,6 +116,7 @@ public class Xvnc extends BuildWrapper {
             @Override
             public void buildEnvVars(Map<String, String> env) {
                 env.put("DISPLAY",":"+displayNumber);
+                env.putAll(xauthorityEnv);
             }
 
             @Override
@@ -125,19 +127,19 @@ public class Xvnc extends BuildWrapper {
                     artifactsDir.mkdirs();
                     logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
                     launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                            stdout(logger).pwd(ws).join();
+                            envs(xauthorityEnv).stdout(logger).pwd(ws).join();
                     ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                 }
                 logger.println(Messages.Xvnc_TERMINATING());
                 if (vncserverCommand != null) {
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).stdout(logger).join();
+                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).envs(xauthorityEnv).stdout(logger).join();
                 } else {
                     // Assume it can be shut down by being killed.
                     proc.kill();
                 }
                 allocator.free(displayNumber);
-
+                xauthority.delete();
                 return true;
             }
         };
