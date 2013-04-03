@@ -5,15 +5,16 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
+import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
 import hudson.model.Computer;
 import hudson.model.Hudson;
 import hudson.model.Node;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -32,12 +34,16 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends BuildWrapper {
-
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
     public boolean takeScreenshot;
-    
+
+    /**
+     * Manages display numbers in use.
+     */
+    private DisplayAllocator allocator;
+
     private static final String FILENAME_SCREENSHOT = "screenshot.jpg";
 
     @DataBoundConstructor
@@ -65,18 +71,18 @@ public class Xvnc extends BuildWrapper {
         }
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
-        int baseDisplayNumber = DESCRIPTOR.baseDisplayNumber; 
+        allocator = new DisplayAllocator(DESCRIPTOR.minDisplayNumber, DESCRIPTOR.maxDisplayNumber);
         if (cmd == null) {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
-        return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, 3);
+        return doSetUp(build, launcher, logger, cmd, 10);
     }
 
     private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,
-            String cmd, int baseDisplayNumber, int retries) throws IOException, InterruptedException {
+            String cmd, int retries) throws IOException, InterruptedException {
 
-        final int displayNumber = allocator.allocate(baseDisplayNumber);
+        final int displayNumber = allocator.allocate();
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
         logger.println(Messages.Xvnc_STARTING());
@@ -97,7 +103,7 @@ public class Xvnc extends BuildWrapper {
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
                 if (retries > 0) {
-                    return doSetUp(build, launcher, logger, cmd, baseDisplayNumber, retries - 1);
+                    return doSetUp(build, launcher, logger, cmd, retries - 1);
                 } else {
                     throw new IOException(message);
                 }
@@ -140,11 +146,6 @@ public class Xvnc extends BuildWrapper {
     }
 
     /**
-     * Manages display numbers in use.
-     */
-    private static final DisplayAllocator allocator = new DisplayAllocator();
-
-    /**
      * Whether {@link #maybeCleanUp} has already been run on a given node.
      */
     private static final Map<Node,Boolean> cleanedUpOn = new WeakHashMap<Node,Boolean>();
@@ -179,7 +180,12 @@ public class Xvnc extends BuildWrapper {
         /*
          * Base X display number. 
          */
-        public int baseDisplayNumber = 10;
+        public int minDisplayNumber = 10;
+
+        /*
+         * Maximum X display number. 
+         */
+        public int maxDisplayNumber = 99;
 
         /**
          * If true, skip xvnc launch on all Windows slaves.
