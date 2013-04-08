@@ -13,9 +13,9 @@
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Xvnc+Plugin</url>
   <developers>
     <developer>
-        <id>jglick</id>
-        <name>Jesse Glick</name>
-        <email>jglick@cloudbees.com</email>
+        <id>levsa</id>
+        <name>Levon Saldamli</name>
+        <email>levon.sa@gmail.com</email>
     </developer>
   </developers>
   <scm>
