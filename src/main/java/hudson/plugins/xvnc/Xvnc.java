@@ -103,6 +103,7 @@ public class Xvnc extends BuildWrapper {
                         "; consider checking the \"Clean up before start\" option";
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
+                allocator.blacklist(displayNumber);
                 if (retries > 0) {
                     return doSetUp(build, launcher, logger, cmd, retries - 1);
                 } else {
