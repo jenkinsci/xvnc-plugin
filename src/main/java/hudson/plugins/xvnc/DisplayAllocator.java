@@ -13,7 +13,8 @@ final class DisplayAllocator {
     /**
      * Display numbers in use.
      */
-    private final Set<Integer> numbers = new HashSet<Integer>();
+    private final Set<Integer> allocatedNumbers = new HashSet<Integer>();
+    private final Set<Integer> blacklistedNumbers = new HashSet<Integer>();
     private final int minDisplayNumber;
     private final int maxDisplayNumber;
 
@@ -31,23 +32,36 @@ final class DisplayAllocator {
     }
 
     public synchronized int allocate() {
-        if (noNumbersLeft()) {
-            throw new RuntimeException("All available display numbers are allocated or " +
-                    "blacklisted: " + numbers.toString());
+        if (noDisplayNumbersLeft()) {
+            if (!blacklistedNumbers.isEmpty()) {
+                blacklistedNumbers.clear();
+            } else {
+                throw new RuntimeException("All available display numbers are allocated or " +
+                        "blacklisted.\nallocated: " + allocatedNumbers.toString() +
+                        "\nblacklisted: " + blacklistedNumbers.toString());
+            }
         }
-        int number;
+        int displayNumber;
         do {
-            number = getRandomValue();
-        } while(numbers.contains(number));
-        numbers.add(number);
-        return number;
+            displayNumber = getRandomValue();
+        } while(isNotAvailable(displayNumber));
+        allocatedNumbers.add(displayNumber);
+        return displayNumber;
     }
 
-    private boolean noNumbersLeft() {
-        return numbers.size() >= getRange();
+    private boolean isNotAvailable(int number) {
+        return allocatedNumbers.contains(number) || blacklistedNumbers.contains(number);
+    }
+
+    private boolean noDisplayNumbersLeft() {
+        return allocatedNumbers.size() + blacklistedNumbers.size() >= getRange();
     }
 
     public synchronized void free(int n) {
-        numbers.remove(n);
+        allocatedNumbers.remove(n);
+    }
+
+    public void blacklist(int badDisplay) {
+        blacklistedNumbers.add(badDisplay);
     }
 }

@@ -52,7 +52,8 @@ public class Xvnc extends BuildWrapper {
     }
 
     @Override
-    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) 
+            throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
         DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
 
