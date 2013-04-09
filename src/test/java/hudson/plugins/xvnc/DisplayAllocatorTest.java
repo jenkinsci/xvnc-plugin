@@ -59,6 +59,30 @@ public class DisplayAllocatorTest {
     }
 
     @Test
+    public void freesPortWhenBlacklisted() {
+        DisplayAllocator allocator = new DisplayAllocator(0, 1);
+        int first = allocator.allocate();
+        int second = allocator.allocate();
+        allocator.blacklist(second);
+        assertThat(allocator.allocate(), equalTo(second));
+    }
+
+    @Test
+    public void canHandleWhenAllDisplaysAreBlacklisted() {
+        DisplayAllocator allocator = new DisplayAllocator(MIN, MAX);
+        int range = MAX - MIN + 1;
+        for (int i=0; i<range; i++) {
+            allocator.allocate();
+            allocator.blacklist(i);
+        }
+        try {
+            allocator.allocate();
+        } catch(RuntimeException e) {
+            fail("Blacklist should have been cleared.");
+        }
+    }
+
+    @Test
     public void doesReturnAllNumbersInRangeInclusive() {
         DisplayAllocator allocator = new DisplayAllocator(MIN, MAX);
         int range = MAX - MIN + 1;

@@ -62,6 +62,7 @@ final class DisplayAllocator {
     }
 
     public void blacklist(int badDisplay) {
+        free(badDisplay);
         blacklistedNumbers.add(badDisplay);
     }
 }
