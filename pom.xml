@@ -9,7 +9,7 @@
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Jenkins Xvnc plugin</name>
-  <version>1.13</version>
+  <version>1.14-SNAPSHOT</version>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Xvnc+Plugin</url>
   <developers>
     <developer>
