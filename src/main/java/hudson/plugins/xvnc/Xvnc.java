@@ -30,7 +30,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * {@link BuildWrapper} that runs <tt>xvnc</tt>.
- * 
+ *
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends BuildWrapper {
@@ -38,11 +38,6 @@ public class Xvnc extends BuildWrapper {
      * Whether or not to take a screenshot upon completion of the build.
      */
     public boolean takeScreenshot;
-
-    /**
-     * Manages display numbers in use.
-     */
-    private DisplayAllocator allocator;
 
     private static final String FILENAME_SCREENSHOT = "screenshot.jpg";
 
@@ -52,7 +47,7 @@ public class Xvnc extends BuildWrapper {
     }
 
     @Override
-    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener) 
+    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener)
             throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
         DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
@@ -62,28 +57,29 @@ public class Xvnc extends BuildWrapper {
                 || build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class) != null) {
             return new Environment(){};
         }
-        
+
         if (DESCRIPTOR.skipOnWindows && !launcher.isUnix()) {
             return new Environment(){};
         }
-        
+
         if (DESCRIPTOR.cleanUp) {
             maybeCleanUp(launcher, listener);
         }
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
-        allocator = new DisplayAllocator(DESCRIPTOR.minDisplayNumber, DESCRIPTOR.maxDisplayNumber);
         if (cmd == null) {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
-        return doSetUp(build, launcher, logger, cmd, 10);
+        return doSetUp(build, launcher, logger, cmd, 10, DESCRIPTOR.minDisplayNumber,
+                DESCRIPTOR.maxDisplayNumber);
     }
 
     private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,
-            String cmd, int retries) throws IOException, InterruptedException {
+            String cmd, int retries, int minDisplayNumber, int maxDisplayNumber)
+                    throws IOException, InterruptedException {
 
-        final int displayNumber = allocator.allocate();
+        final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
 
         logger.println(Messages.Xvnc_STARTING());
@@ -105,7 +101,8 @@ public class Xvnc extends BuildWrapper {
                 //allocator.free(displayNumber);
                 allocator.blacklist(displayNumber);
                 if (retries > 0) {
-                    return doSetUp(build, launcher, logger, cmd, retries - 1);
+                    return doSetUp(build, launcher, logger, cmd, retries - 1,
+                            minDisplayNumber, maxDisplayNumber);
                 } else {
                     throw new IOException(message);
                 }
@@ -148,10 +145,15 @@ public class Xvnc extends BuildWrapper {
     }
 
     /**
+     * Manages display numbers in use.
+     */
+    private static final DisplayAllocator allocator = new DisplayAllocator();
+
+    /**
      * Whether {@link #maybeCleanUp} has already been run on a given node.
      */
     private static final Map<Node,Boolean> cleanedUpOn = new WeakHashMap<Node,Boolean>();
-    
+
     // XXX I18N
     private static synchronized void maybeCleanUp(Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         Node node = Computer.currentComputer().getNode();
@@ -168,10 +170,10 @@ public class Xvnc extends BuildWrapper {
         launcher.launch().stdout(logger).cmds("pkill", "Xrealvnc").join();
         launcher.launch().stdout(logger).cmds("sh", "-c", "rm -f /tmp/.X*-lock /tmp/.X11-unix/X*").join();
     }
-    
+
     @Extension
     public static final class DescriptorImpl extends BuildWrapperDescriptor {
-        
+
         /**
          * xvnc command line. This can include macro.
          *
@@ -180,12 +182,12 @@ public class Xvnc extends BuildWrapper {
         public String xvnc;
 
         /*
-         * Base X display number. 
+         * Base X display number.
          */
         public int minDisplayNumber = 10;
 
         /*
-         * Maximum X display number. 
+         * Maximum X display number.
          */
         public int maxDisplayNumber = 99;
 
@@ -193,7 +195,7 @@ public class Xvnc extends BuildWrapper {
          * If true, skip xvnc launch on all Windows slaves.
          */
         public boolean skipOnWindows = true;
-        
+
         /**
          * If true, try to clean up old processes and locks when first run.
          */
