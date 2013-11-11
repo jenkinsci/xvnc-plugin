@@ -86,7 +86,8 @@ public class Xvnc extends BuildWrapper {
 
         String[] cmds = Util.tokenize(actualCmd);
         final FilePath xauthority = build.getWorkspace().createTempFile(".Xauthority-", "");
-        final Map<String,String> xauthorityEnv = Collections.singletonMap("XAUTHORITY", xauthority.getRemote());
+        final Map<String,String> xauthorityEnv = Collections.singletonMap("XAUTHORITY",
+                "\"" + xauthority.getRemote() + "\"");
         final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(build.getWorkspace()).start();
         final String vncserverCommand;
         if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
