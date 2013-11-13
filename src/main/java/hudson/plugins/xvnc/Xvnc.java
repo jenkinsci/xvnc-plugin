@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import jenkins.model.Jenkins;
@@ -39,11 +40,14 @@ public class Xvnc extends BuildWrapper {
      */
     public boolean takeScreenshot;
 
+    public Boolean useXauthority;
+
     private static final String FILENAME_SCREENSHOT = "screenshot.jpg";
 
     @DataBoundConstructor
-    public Xvnc(boolean takeScreenshot) {
+    public Xvnc(boolean takeScreenshot, boolean useXauthority) {
         this.takeScreenshot = takeScreenshot;
+        this.useXauthority = useXauthority;
     }
 
     @Override
@@ -85,10 +89,14 @@ public class Xvnc extends BuildWrapper {
         logger.println(Messages.Xvnc_STARTING());
 
         String[] cmds = Util.tokenize(actualCmd);
+
         final FilePath xauthority = build.getWorkspace().createTempFile(".Xauthority-", "");
-        final Map<String,String> xauthorityEnv = Collections.singletonMap("XAUTHORITY",
-                "\"" + xauthority.getRemote() + "\"");
-        final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(build.getWorkspace()).start();
+        final Map<String,String> env = new HashMap<String, String>();
+        if (useXauthority) {
+            env.put("XAUTHORITY", "\""+xauthority.getRemote()+"\"");
+        }
+
+        final Proc proc = launcher.launch().cmds(cmds).envs(env).stdout(logger).pwd(build.getWorkspace()).start();
         final String vncserverCommand;
         if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
             // Command just started the server; -kill will stop it.
@@ -113,10 +121,11 @@ public class Xvnc extends BuildWrapper {
         }
 
         return new Environment() {
-            @Override
+
+                @Override
             public void buildEnvVars(Map<String, String> env) {
                 env.put("DISPLAY",":"+displayNumber);
-                env.putAll(xauthorityEnv);
+                env.putAll(env);
             }
 
             @Override
@@ -127,13 +136,13 @@ public class Xvnc extends BuildWrapper {
                     artifactsDir.mkdirs();
                     logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
                     launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                            envs(xauthorityEnv).stdout(logger).pwd(ws).join();
+                            envs(env).stdout(logger).pwd(ws).join();
                     ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
                 }
                 logger.println(Messages.Xvnc_TERMINATING());
                 if (vncserverCommand != null) {
                     // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).envs(xauthorityEnv).stdout(logger).join();
+                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).envs(env).stdout(logger).join();
                 } else {
                     // Assume it can be shut down by being killed.
                     proc.kill();
@@ -238,5 +247,10 @@ public class Xvnc extends BuildWrapper {
                 return FormValidation.warningWithMarkup(Messages.Xvnc_SHOULD_INCLUDE_DISPLAY_NUMBER());
             }
         }
+    }
+
+    public Object readResolve() {
+        if (useXauthority == null) useXauthority = true;
+        return this;
     }
 }

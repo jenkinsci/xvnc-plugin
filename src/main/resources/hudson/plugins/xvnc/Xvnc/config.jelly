@@ -3,4 +3,9 @@
     <f:checkbox/>
     <label class="attach-previous">${%Take Screenshot Upon Build Completion?}</label>
   </f:entry>
+
+  <f:entry field="useXauthority">
+      <f:checkbox checked="${instance == null || instance.useXauthority}"/>
+        <label class="attach-previous">${%Create a dedicated Xauthority file per build?}</label>
+  </f:entry>
 </j:jelly>
