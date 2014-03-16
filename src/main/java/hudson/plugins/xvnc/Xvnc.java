@@ -93,7 +93,7 @@ public class Xvnc extends BuildWrapper {
         final FilePath xauthority = build.getWorkspace().createTempFile(".Xauthority-", "");
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
-            xauthorityEnv.put("XAUTHORITY", "\"" + xauthority.getRemote() + "\"");
+            xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
         }
 
         final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(build.getWorkspace()).start();
