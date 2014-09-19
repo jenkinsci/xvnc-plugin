@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
+
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -82,6 +83,8 @@ public class Xvnc extends BuildWrapper {
     private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,
             String cmd, int retries, int minDisplayNumber, int maxDisplayNumber)
                     throws IOException, InterruptedException {
+
+        final DisplayAllocator allocator = getAllocator(build);
 
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
@@ -156,10 +159,14 @@ public class Xvnc extends BuildWrapper {
         };
     }
 
-    /**
-     * Manages display numbers in use.
-     */
-    private static final DisplayAllocator allocator = new DisplayAllocator();
+    private DisplayAllocator getAllocator(AbstractBuild<?, ?> build) throws IOException {
+        DisplayAllocator.Property property = build.getBuiltOn().getNodeProperties().get(DisplayAllocator.Property.class);
+        if (property == null) {
+            property = new DisplayAllocator.Property();
+            build.getBuiltOn().getNodeProperties().add(property);
+        }
+        return property.getAllocator();
+    }
 
     /**
      * Whether {@link #maybeCleanUp} has already been run on a given node.
@@ -218,6 +225,7 @@ public class Xvnc extends BuildWrapper {
             load();
         }
 
+        @Override
         public String getDisplayName() {
             return Messages.description();
         }
@@ -230,6 +238,7 @@ public class Xvnc extends BuildWrapper {
             return true;
         }
 
+        @Override
         public boolean isApplicable(AbstractProject<?, ?> item) {
             return true;
         }
