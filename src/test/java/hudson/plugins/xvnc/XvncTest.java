@@ -111,6 +111,20 @@ public class XvncTest {
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get());
     }
 
+    @Test
+    public void avoidNpeAfterDeserialiation() throws Exception {
+        FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
+
+        runXvnc(p).cleanUp = true;
+        j.buildAndAssertSuccess(p);
+
+        j.jenkins.save();
+        j.jenkins.reload();
+
+        runXvnc(p).cleanUp = true;
+        j.buildAndAssertSuccess(p);
+    }
+
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {
         final Xvnc xvnc = new Xvnc(false, false);
         p.getBuildWrappersList().add(xvnc);

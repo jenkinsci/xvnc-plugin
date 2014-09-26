@@ -71,11 +71,15 @@ final class DisplayAllocator {
     @Restricted(NoExternalUse.class)
     /*package*/ static final class Property extends NodeProperty<Node> {
 
-        private transient final DisplayAllocator allocator = new DisplayAllocator();
-
+        private transient /*final*/ DisplayAllocator allocator = new DisplayAllocator();
 
         /*package*/ DisplayAllocator getAllocator() {
             return allocator;
+        }
+
+        private Object readResolve() {
+            allocator = new DisplayAllocator();
+            return this;
         }
     }
 }
