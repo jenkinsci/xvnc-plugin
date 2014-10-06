@@ -1,8 +1,14 @@
 package hudson.plugins.xvnc;
 
+import hudson.model.Node;
+import hudson.slaves.NodeProperty;
+
+import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
-import java.util.HashSet;
+
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 /**
  * Manages the display numbers in use.
@@ -60,5 +66,20 @@ final class DisplayAllocator {
     public void blacklist(int badDisplay) {
         free(badDisplay);
         blacklistedNumbers.add(badDisplay);
+    }
+
+    @Restricted(NoExternalUse.class)
+    /*package*/ static final class Property extends NodeProperty<Node> {
+
+        private transient /*final*/ DisplayAllocator allocator = new DisplayAllocator();
+
+        /*package*/ DisplayAllocator getAllocator() {
+            return allocator;
+        }
+
+        private Object readResolve() {
+            allocator = new DisplayAllocator();
+            return this;
+        }
     }
 }
