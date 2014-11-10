@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
+import hudson.slaves.NodePropertyDescriptor;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -25,7 +26,7 @@ final class DisplayAllocator {
     public DisplayAllocator() {
     }
 
-    private final int getRandomValue(final int min, final int max) {
+    private int getRandomValue(final int min, final int max) {
         return min + (new Random().nextInt(getRange(min, max)));
     }
 
@@ -80,6 +81,12 @@ final class DisplayAllocator {
         private Object readResolve() {
             allocator = new DisplayAllocator();
             return this;
+        }
+
+        public static class DescriptorImpl extends NodePropertyDescriptor {
+
+            @Override
+            public String getDisplayName() { return ""; }
         }
     }
 }
