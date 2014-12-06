@@ -23,11 +23,13 @@
  */
 package hudson.plugins.xvnc;
 
+import static org.junit.Assert.assertTrue;
 import hudson.Launcher;
 import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
 import hudson.model.Result;
 import hudson.model.AbstractBuild;
+import hudson.model.Descriptor;
 import hudson.model.FreeStyleProject;
 import hudson.model.Hudson;
 import hudson.plugins.xvnc.Xvnc.DescriptorImpl;
@@ -123,6 +125,12 @@ public class XvncTest {
 
         runXvnc(p).cleanUp = true;
         j.buildAndAssertSuccess(p);
+    }
+
+    @Test @Bug(25424)
+    public void jenkins25424() {
+        Descriptor<?> desc = j.jenkins.getDescriptorOrDie(DisplayAllocator.Property.class);
+        assertTrue(desc instanceof DisplayAllocator.Property.DescriptorImpl);
     }
 
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {
