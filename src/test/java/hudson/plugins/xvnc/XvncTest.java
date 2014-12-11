@@ -23,13 +23,16 @@
  */
 package hudson.plugins.xvnc;
 
+import static org.junit.Assert.assertTrue;
 import hudson.Launcher;
 import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
 import hudson.model.Result;
 import hudson.model.AbstractBuild;
+import hudson.model.Descriptor;
 import hudson.model.FreeStyleProject;
 import hudson.model.Hudson;
+import hudson.model.Node;
 import hudson.plugins.xvnc.Xvnc.DescriptorImpl;
 import hudson.slaves.DumbSlave;
 import hudson.tasks.Builder;
@@ -73,7 +76,7 @@ public class XvncTest {
     public void reuseDisplayNumberOnSameSlave() throws Exception {
         FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
 
-        runXvnc(p).cleanUp = true;;
+        runXvnc(p).cleanUp = true;
 
         j.buildAndAssertSuccess(p);
         j.buildAndAssertSuccess(p);
@@ -123,6 +126,32 @@ public class XvncTest {
 
         runXvnc(p).cleanUp = true;
         j.buildAndAssertSuccess(p);
+    }
+
+    @Test @Bug(25424)
+    public void jenkins25424() {
+        Descriptor<?> desc = j.jenkins.getDescriptorOrDie(DisplayAllocator.Property.class);
+        assertTrue(desc instanceof DisplayAllocator.Property.DescriptorImpl);
+    }
+
+    @Test @Bug(25424)
+    public void saveComputerWithDisplayAllocatorProperty() throws Exception {
+        DumbSlave slave = j.createOnlineSlave();
+
+        configRoundtrip(slave); // Without property
+
+        FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
+        p.setAssignedNode(slave);
+        runXvnc(p).cleanUp = true;
+        j.buildAndAssertSuccess(p);
+
+        configRoundtrip(slave); // With property
+    }
+
+    // TODO available since 1.479 in JenkinsRule
+    private <N extends Node> N configRoundtrip(N node) throws Exception {
+        j.submit(j.createWebClient().goTo("/computer/" + node.getNodeName() + "/configure").getFormByName("config"));
+        return (N)j.jenkins.getNode(node.getNodeName());
     }
 
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {

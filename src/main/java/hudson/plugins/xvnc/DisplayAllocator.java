@@ -1,13 +1,14 @@
 package hudson.plugins.xvnc;
 
+import hudson.Extension;
 import hudson.model.Node;
 import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
 
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-import hudson.slaves.NodePropertyDescriptor;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -83,10 +84,11 @@ final class DisplayAllocator {
             return this;
         }
 
+        @Extension
         public static class DescriptorImpl extends NodePropertyDescriptor {
 
             @Override
-            public String getDisplayName() { return ""; }
+            public String getDisplayName() { return null; }
         }
     }
 }
