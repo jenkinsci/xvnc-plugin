@@ -88,7 +88,7 @@ final class DisplayAllocator {
         public static class DescriptorImpl extends NodePropertyDescriptor {
 
             @Override
-            public String getDisplayName() { return ""; }
+            public String getDisplayName() { return null; }
         }
     }
 }
