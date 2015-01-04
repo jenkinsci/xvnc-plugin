@@ -39,6 +39,7 @@ import hudson.tasks.Builder;
 import hudson.util.OneShotEvent;
 
 import java.io.IOException;
+import java.util.concurrent.Future;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,7 +53,7 @@ public class XvncTest {
     @Test @Bug(24773)
     public void distinctDisplaySpaceForSlaves() throws Exception {
         DumbSlave slaveA = j.createOnlineSlave();
-        DumbSlave slaveB = j.createOnlineSlave();
+        Node slaveB = j.jenkins;
 
         FreeStyleProject jobA = j.jenkins.createProject(FreeStyleProject.class, "jobA");
         jobA.setAssignedNode(slaveA);
@@ -63,13 +64,14 @@ public class XvncTest {
         fakeXvncRun(jobB);
 
         jobA.getBuildersList().add(new Blocker());
-        jobA.scheduleBuild2(0);
+        Future<FreeStyleBuild> fb = jobA.scheduleBuild2(0);
         Blocker.RUNNING.block(1000);
 
         FreeStyleBuild build = jobB.scheduleBuild2(0).get();
         j.assertBuildStatusSuccess(build);
 
         Blocker.DONE.signal();
+        j.assertBuildStatusSuccess(fb.get());
     }
 
     @Test // The number should not be allocated as builds are executed sequentially
@@ -183,7 +185,7 @@ public class XvncTest {
         @Override
         public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
             RUNNING.signal();
-            DONE.block(1000);
+            DONE.block(10000);
             return true;
         }
     }
