@@ -85,6 +85,7 @@ public class Xvnc extends SimpleBuildWrapper {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
+        workspace.mkdirs();
         doSetUp(context, build, workspace, node, launcher, logger, cmd, 10, DESCRIPTOR.minDisplayNumber,
                 DESCRIPTOR.maxDisplayNumber);
     }
