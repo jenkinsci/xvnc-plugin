@@ -164,11 +164,15 @@ public class Xvnc extends SimpleBuildWrapper {
             PrintStream logger = listener.getLogger();
             if (takeScreenshot) {
                 logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
-                launcher.launch().cmds("echo", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
-                launcher.launch().cmds("ls", "-l", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
-                launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                        envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
-                build.getArtifactManager().archive(workspace, launcher, new BuildListenerAdapter(listener), Collections.singletonMap(FILENAME_SCREENSHOT, FILENAME_SCREENSHOT));
+                try {
+                    launcher.launch().cmds("echo", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    launcher.launch().cmds("ls", "-l", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
+                            envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    build.getArtifactManager().archive(workspace, launcher, new BuildListenerAdapter(listener), Collections.singletonMap(FILENAME_SCREENSHOT, FILENAME_SCREENSHOT));
+                } catch (Exception x) {
+                    x.printStackTrace(logger);
+                }
             }
             logger.println(Messages.Xvnc_TERMINATING());
             if (vncserverCommand != null) {
