@@ -193,12 +193,15 @@ public class Xvnc extends SimpleBuildWrapper {
     }
 
     private static DisplayAllocator getAllocator(Node node) throws IOException {
-        DisplayAllocator.Property property = node.getNodeProperties().get(DisplayAllocator.Property.class);
-        if (property == null) {
-            property = new DisplayAllocator.Property();
-            node.getNodeProperties().add(property);
+        DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
+        String name = node.getNodeName();
+        DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
+        if (allocator == null) {
+            allocator = new DisplayAllocator();
+            allocator.owner = DESCRIPTOR;
+            DESCRIPTOR.allocators.put(name, allocator);
         }
-        return property.getAllocator();
+        return allocator;
     }
 
     /**
@@ -252,9 +255,23 @@ public class Xvnc extends SimpleBuildWrapper {
          */
         public boolean cleanUp = false;
 
+        // TODO this might cause excessive traffic in SaveableListener; really want a Jenkins API for a Saveable of nonversionable runtime state (cloud slaves, etc.)
+        private Map<String,DisplayAllocator> allocators;
+
         public DescriptorImpl() {
             super(Xvnc.class);
             load();
+        }
+
+        @Override public synchronized void load() {
+            super.load();
+            if (allocators == null) {
+                allocators = new HashMap<String,DisplayAllocator>();
+            } else {
+                for (DisplayAllocator allocator : allocators.values()) {
+                    allocator.owner = this;
+                }
+            }
         }
 
         @Override
