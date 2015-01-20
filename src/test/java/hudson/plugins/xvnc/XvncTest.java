@@ -93,7 +93,7 @@ public class XvncTest {
         jobB.setAssignedNode(slaveB);
 
         // blacklist :42 on slaveA
-        runXvnc(jobA).xvnc = "vncserver :$DISPLAY_NUMBER with wrong args so it wont start";
+        runXvnc(jobA).xvnc = "vncserver-broken :$DISPLAY_NUMBER";
         j.assertBuildStatus(Result.FAILURE, jobA.scheduleBuild2(0).get());
 
         // use :42 on slaveB
@@ -106,11 +106,11 @@ public class XvncTest {
         FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
 
         // Blacklist
-        runXvnc(p).xvnc = "vncserver :$DISPLAY_NUMBER with wrong args so it wont start";
+        runXvnc(p).xvnc = "vncserver-broken :$DISPLAY_NUMBER";
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get());
 
         // Should still fail
-        runXvnc(p).xvnc = "vncserver :$DISPLAY_NUMBER with wrong args so it wont start";
+        runXvnc(p).xvnc = "vncserver-broken :$DISPLAY_NUMBER";
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get());
     }
 
