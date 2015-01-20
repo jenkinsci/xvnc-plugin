@@ -85,7 +85,7 @@ public class XvncTest {
     }
 
     @Test
-    public void displayBlacklistedOnOneMachineShouldNobBeBlackistedOnAnother() throws Exception {
+    public void displayBlacklistedOnOneMachineShouldNotBeBlacklistedOnAnother() throws Exception {
         DumbSlave slaveA = j.createOnlineSlave();
         DumbSlave slaveB = j.createOnlineSlave();
 
