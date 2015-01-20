@@ -140,20 +140,14 @@ public class XvncTest {
     public void saveComputerWithDisplayAllocatorProperty() throws Exception {
         DumbSlave slave = j.createOnlineSlave();
 
-        configRoundtrip(slave); // Without property
+        j.configRoundtrip(slave); // Without property
 
         FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
         p.setAssignedNode(slave);
         runXvnc(p).cleanUp = true;
         j.buildAndAssertSuccess(p);
 
-        configRoundtrip(slave); // With property
-    }
-
-    // TODO available since 1.479 in JenkinsRule
-    private <N extends Node> N configRoundtrip(N node) throws Exception {
-        j.submit(j.createWebClient().goTo("/computer/" + node.getNodeName() + "/configure").getFormByName("config"));
-        return (N)j.jenkins.getNode(node.getNodeName());
+        j.configRoundtrip(slave); // With property
     }
 
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {
