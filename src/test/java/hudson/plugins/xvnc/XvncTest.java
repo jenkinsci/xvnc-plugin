@@ -38,6 +38,7 @@ import hudson.util.OneShotEvent;
 
 import java.io.IOException;
 import java.util.concurrent.Future;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Rule;
 import org.junit.Test;
