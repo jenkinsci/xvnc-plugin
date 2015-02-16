@@ -67,7 +67,7 @@ public class XvncWorkflowTest {
                         + "node('slave') {\n"
                         + "  wrap([$class: 'Xvnc']) {\n"
                         + "    semaphore 'withDisplayAfterRestart'\n"
-                        + "    sh 'echo DISPLAY=$DISPLAY; which xmessage && xmessage -timeout 1 hello'\n"
+                        + "    sh 'echo DISPLAY=$DISPLAY; which xmessage && xmessage -timeout 1 hello || :'\n"
                         + "  }\n"
                         + "}", true));
                 WorkflowRun b = p.scheduleBuild2(0).waitForStart();
