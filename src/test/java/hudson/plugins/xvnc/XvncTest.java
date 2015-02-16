@@ -83,7 +83,7 @@ public class XvncTest {
     }
 
     @Test
-    public void displayBlacklistedOnOneMachineShouldNobBeBlackistedOnAnother() throws Exception {
+    public void displayBlacklistedOnOneMachineShouldNotBeBlacklistedOnAnother() throws Exception {
         DumbSlave slaveA = j.createOnlineSlave();
         DumbSlave slaveB = j.createOnlineSlave();
 
@@ -110,8 +110,13 @@ public class XvncTest {
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get());
 
         // Should still fail
-        runXvnc(p).xvnc = "vncserver-broken :$DISPLAY_NUMBER";
+        runXvnc(p);
+        FreeStyleBuild build = p.scheduleBuild2(0).get();
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get());
+
+        @SuppressWarnings("deprecation")
+        String log = build.getLog();
+        assertTrue(log, log.contains("All available display numbers are allocated or blacklisted"));
     }
 
     @Test
