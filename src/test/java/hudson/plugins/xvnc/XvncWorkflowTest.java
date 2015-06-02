@@ -29,6 +29,7 @@ import hudson.slaves.DumbSlave;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.RetentionStrategy;
 import java.util.Collections;
+import org.jenkinsci.plugins.workflow.JenkinsRuleExt;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -82,10 +83,7 @@ public class XvncWorkflowTest {
                 assertNotNull(p);
                 WorkflowRun b = p.getBuildByNumber(1);
                 assertNotNull(b);
-                while (b.isBuilding()) { // TODO JENKINS-26399 need utility in JenkinsRule
-                    Thread.sleep(100);
-                }
-                story.j.assertBuildStatusSuccess(b);
+                story.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(b));
                 story.j.assertLogContains("DISPLAY=:", b);
             }
         });
