@@ -1,29 +1,33 @@
 package hudson.plugins.xvnc;
 
+import hudson.AbortException;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.Util;
-import hudson.model.BuildListener;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
-import hudson.model.Hudson;
 import hudson.model.Node;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.WeakHashMap;
+import javax.annotation.CheckForNull;
 
 import jenkins.model.Jenkins;
+import jenkins.tasks.SimpleBuildWrapper;
+import jenkins.util.BuildListenerAdapter;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -35,7 +39,7 @@ import org.kohsuke.stapler.StaplerRequest;
  *
  * @author Kohsuke Kawaguchi
  */
-public class Xvnc extends BuildWrapper {
+public class Xvnc extends SimpleBuildWrapper {
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
@@ -52,23 +56,28 @@ public class Xvnc extends BuildWrapper {
     }
 
     @Override
-    public Environment setUp(AbstractBuild build, final Launcher launcher, BuildListener listener)
+    public void setUp(Context context, Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener, EnvVars initialEnvironment)
             throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
-        DescriptorImpl DESCRIPTOR = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
+        DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
 
         // skip xvnc execution
-        if (build.getBuiltOn().getAssignedLabels().contains(Jenkins.getInstance().getLabelAtom("noxvnc"))
-                || build.getBuiltOn().getNodeProperties().get(NodePropertyImpl.class) != null) {
-            return new Environment(){};
+        Computer c = workspace.toComputer();
+        Node node = c != null ? c.getNode() : null;
+        if (node == null) {
+            throw new AbortException("No node recognized for " + workspace);
+        }
+        if (node.getAssignedLabels().contains(Jenkins.getInstance().getLabelAtom("noxvnc"))
+                || node.getNodeProperties().get(NodePropertyImpl.class) != null) {
+            return;
         }
 
         if (DESCRIPTOR.skipOnWindows && !launcher.isUnix()) {
-            return new Environment(){};
+            return;
         }
 
         if (DESCRIPTOR.cleanUp) {
-            maybeCleanUp(launcher, listener);
+            maybeCleanUp(launcher, listener, node);
         }
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
@@ -76,15 +85,16 @@ public class Xvnc extends BuildWrapper {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
-        return doSetUp(build, launcher, logger, cmd, 10, DESCRIPTOR.minDisplayNumber,
+        workspace.mkdirs();
+        doSetUp(context, build, workspace, node, launcher, logger, cmd, 10, DESCRIPTOR.minDisplayNumber,
                 DESCRIPTOR.maxDisplayNumber);
     }
 
-    private Environment doSetUp(AbstractBuild build, final Launcher launcher, final PrintStream logger,
+    private void doSetUp(Context context, Run<?,?> build, FilePath workspace, Node node, final Launcher launcher, final PrintStream logger,
             String cmd, int retries, int minDisplayNumber, int maxDisplayNumber)
                     throws IOException, InterruptedException {
 
-        final DisplayAllocator allocator = getAllocator(build);
+        final DisplayAllocator allocator = getAllocator(node);
 
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
         final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
@@ -93,13 +103,17 @@ public class Xvnc extends BuildWrapper {
 
         String[] cmds = Util.tokenize(actualCmd);
 
-        final FilePath xauthority = build.getWorkspace().createTempFile(".Xauthority-", "");
+        final FilePath xauthority = workspace.createTempFile(".Xauthority-", "");
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
             xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
+            context.env("XAUTHORITY", xauthority.getRemote());
+        } else {
+            // Need something to identify it by for Launcher.kill in DisposerImpl.
+            xauthorityEnv.put("XVNC_COOKIE", UUID.randomUUID().toString());
         }
 
-        final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(build.getWorkspace()).start();
+        final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(workspace).start();
         final String vncserverCommand;
         if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
             // Command just started the server; -kill will stop it.
@@ -113,8 +127,9 @@ public class Xvnc extends BuildWrapper {
                 //allocator.free(displayNumber);
                 allocator.blacklist(displayNumber);
                 if (retries > 0) {
-                    return doSetUp(build, launcher, logger, cmd, retries - 1,
+                    doSetUp(context, build, workspace, node, launcher, logger, cmd, retries - 1,
                             minDisplayNumber, maxDisplayNumber);
+                    return;
                 } else {
                     throw new IOException(message);
                 }
@@ -123,49 +138,70 @@ public class Xvnc extends BuildWrapper {
             vncserverCommand = null;
         }
 
-        return new Environment() {
+        context.env("DISPLAY", ":" + displayNumber);
+        context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority.getRemote()));
+    }
+    
+    private static class DisposerImpl extends Disposer {
+        
+        private static final long serialVersionUID = 1;
+        
+        private final int displayNumber;
+        private final Map<String,String> xauthorityEnv;
+        private final @CheckForNull String vncserverCommand;
+        private final boolean takeScreenshot;
+        private final String xauthorityPath;
 
-                @Override
-            public void buildEnvVars(Map<String, String> env) {
-                env.put("DISPLAY",":"+displayNumber);
-                env.putAll(xauthorityEnv);
-            }
-
-            @Override
-            public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-                if (takeScreenshot) {
-                    FilePath ws = build.getWorkspace();
-                    File artifactsDir = build.getArtifactsDir();
-                    artifactsDir.mkdirs();
-                    logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
-                    launcher.launch().cmds("echo", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(ws).join();
-                    launcher.launch().cmds("ls", "-l", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(ws).join();
+        DisposerImpl(int displayNumber, Map<String,String> xauthorityEnv, @CheckForNull String vncserverCommand, boolean takeScreenshot, String xauthorityPath) {
+            this.displayNumber = displayNumber;
+            this.xauthorityEnv = xauthorityEnv;
+            this.vncserverCommand = vncserverCommand;
+            this.takeScreenshot = takeScreenshot;
+            this.xauthorityPath = xauthorityPath;
+        }
+        
+        @Override public void tearDown(Run<?,?> build, FilePath workspace, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+            PrintStream logger = listener.getLogger();
+            if (takeScreenshot) {
+                logger.println(Messages.Xvnc_TAKING_SCREENSHOT());
+                try {
+                    launcher.launch().cmds("echo", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    launcher.launch().cmds("ls", "-l", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
                     launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                            envs(xauthorityEnv).stdout(logger).pwd(ws).join();
-                    ws.child(FILENAME_SCREENSHOT).copyTo(new FilePath(artifactsDir).child(FILENAME_SCREENSHOT));
+                            envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    build.getArtifactManager().archive(workspace, launcher, new BuildListenerAdapter(listener), Collections.singletonMap(FILENAME_SCREENSHOT, FILENAME_SCREENSHOT));
+                } catch (Exception x) {
+                    x.printStackTrace(logger);
                 }
-                logger.println(Messages.Xvnc_TERMINATING());
-                if (vncserverCommand != null) {
-                    // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
-                    launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).envs(xauthorityEnv).stdout(logger).join();
-                } else {
-                    // Assume it can be shut down by being killed.
-                    proc.kill();
-                }
-                allocator.free(displayNumber);
-                xauthority.delete();
-                return true;
             }
-        };
+            logger.println(Messages.Xvnc_TERMINATING());
+            if (vncserverCommand != null) {
+                // #173: stopping the wrapper script will accomplish nothing. It has already exited, in fact.
+                launcher.launch().cmds(vncserverCommand, "-kill", ":" + displayNumber).envs(xauthorityEnv).stdout(logger).join();
+            } else {
+                // Assume it can be shut down by being killed.
+                launcher.kill(xauthorityEnv);
+            }
+            Computer c = workspace.toComputer();
+            Node node = c != null ? c.getNode() : null;
+            if (node == null) {
+                throw new AbortException("No node recognized for " + workspace);
+            }
+            getAllocator(node).free(displayNumber);
+            workspace.child(xauthorityPath).delete();
+        }
     }
 
-    private DisplayAllocator getAllocator(AbstractBuild<?, ?> build) throws IOException {
-        DisplayAllocator.Property property = build.getBuiltOn().getNodeProperties().get(DisplayAllocator.Property.class);
-        if (property == null) {
-            property = new DisplayAllocator.Property();
-            build.getBuiltOn().getNodeProperties().add(property);
+    private static DisplayAllocator getAllocator(Node node) throws IOException {
+        DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
+        String name = node.getNodeName();
+        DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
+        if (allocator == null) {
+            allocator = new DisplayAllocator();
+            allocator.owner = DESCRIPTOR;
+            DESCRIPTOR.allocators.put(name, allocator);
         }
-        return property.getAllocator();
+        return allocator;
     }
 
     /**
@@ -174,8 +210,7 @@ public class Xvnc extends BuildWrapper {
     private static final Map<Node,Boolean> cleanedUpOn = new WeakHashMap<Node,Boolean>();
 
     // XXX I18N
-    private static synchronized void maybeCleanUp(Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        Node node = Computer.currentComputer().getNode();
+    private static synchronized void maybeCleanUp(Launcher launcher, TaskListener listener, Node node) throws IOException, InterruptedException {
         if (cleanedUpOn.put(node, true) != null) {
             return;
         }
@@ -220,9 +255,23 @@ public class Xvnc extends BuildWrapper {
          */
         public boolean cleanUp = false;
 
+        // TODO this might cause excessive traffic in SaveableListener; really want a Jenkins API for a Saveable of nonversionable runtime state (cloud slaves, etc.)
+        private Map<String,DisplayAllocator> allocators;
+
         public DescriptorImpl() {
             super(Xvnc.class);
             load();
+        }
+
+        @Override public synchronized void load() {
+            super.load();
+            if (allocators == null) {
+                allocators = new HashMap<String,DisplayAllocator>();
+            } else {
+                for (DisplayAllocator allocator : allocators.values()) {
+                    allocator.owner = this;
+                }
+            }
         }
 
         @Override
