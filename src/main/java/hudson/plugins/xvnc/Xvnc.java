@@ -87,30 +87,40 @@ public class Xvnc extends SimpleBuildWrapper {
 
         workspace.mkdirs();
         doSetUp(context, build, workspace, node, launcher, logger, cmd, 10, DESCRIPTOR.minDisplayNumber,
-                DESCRIPTOR.maxDisplayNumber);
+                DESCRIPTOR.maxDisplayNumber, DESCRIPTOR.xauthorityInFsRoot);
     }
 
     private void doSetUp(Context context, Run<?,?> build, FilePath workspace, Node node, final Launcher launcher, final PrintStream logger,
-            String cmd, int retries, int minDisplayNumber, int maxDisplayNumber)
+            String cmd, int retries, int minDisplayNumber, int maxDisplayNumber, boolean xauthorityInFsRoot)
                     throws IOException, InterruptedException {
 
         final DisplayAllocator allocator = getAllocator(node);
 
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
-        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
+        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER", String.valueOf(displayNumber)));
 
         logger.println(Messages.Xvnc_STARTING());
 
         String[] cmds = Util.tokenize(actualCmd);
 
-        final FilePath xauthority = workspace.createTempFile(".Xauthority-", "");
+        final FilePath xRoot;
+
+        if (xauthorityInFsRoot) {
+            xRoot = workspace.toComputer().getNode().getRootPath();
+        } else {
+            xRoot = workspace;
+        }
+
+        final FilePath xauthority;
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
+            xauthority = xRoot.createTempFile(".Xauthority-", "");
             xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
             context.env("XAUTHORITY", xauthority.getRemote());
         } else {
             // Need something to identify it by for Launcher.kill in DisposerImpl.
             xauthorityEnv.put("XVNC_COOKIE", UUID.randomUUID().toString());
+            xauthority = null;
         }
 
         final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(workspace).start();
@@ -128,7 +138,7 @@ public class Xvnc extends SimpleBuildWrapper {
                 allocator.blacklist(displayNumber);
                 if (retries > 0) {
                     doSetUp(context, build, workspace, node, launcher, logger, cmd, retries - 1,
-                            minDisplayNumber, maxDisplayNumber);
+                            minDisplayNumber, maxDisplayNumber, xauthorityInFsRoot);
                     return;
                 } else {
                     throw new IOException(message);
@@ -139,7 +149,7 @@ public class Xvnc extends SimpleBuildWrapper {
         }
 
         context.env("DISPLAY", ":" + displayNumber);
-        context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority.getRemote()));
+        context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority != null ? xauthority.getRemote() : null));
     }
     
     private static class DisposerImpl extends Disposer {
@@ -148,11 +158,13 @@ public class Xvnc extends SimpleBuildWrapper {
         
         private final int displayNumber;
         private final Map<String,String> xauthorityEnv;
-        private final @CheckForNull String vncserverCommand;
+        @CheckForNull
+        private final String vncserverCommand;
         private final boolean takeScreenshot;
+        @CheckForNull
         private final String xauthorityPath;
 
-        DisposerImpl(int displayNumber, Map<String,String> xauthorityEnv, @CheckForNull String vncserverCommand, boolean takeScreenshot, String xauthorityPath) {
+        DisposerImpl(int displayNumber, Map<String,String> xauthorityEnv, @CheckForNull String vncserverCommand, boolean takeScreenshot, @CheckForNull String xauthorityPath) {
             this.displayNumber = displayNumber;
             this.xauthorityEnv = xauthorityEnv;
             this.vncserverCommand = vncserverCommand;
@@ -188,7 +200,12 @@ public class Xvnc extends SimpleBuildWrapper {
                 throw new AbortException("No node recognized for " + workspace);
             }
             getAllocator(node).free(displayNumber);
-            workspace.child(xauthorityPath).delete();
+            if (xauthorityPath != null) {
+                FilePath path = new FilePath(workspace.toComputer().getChannel(), xauthorityPath);
+                if (path.exists()) {
+                    path.delete();
+                }
+            }
         }
     }
 
@@ -249,6 +266,11 @@ public class Xvnc extends SimpleBuildWrapper {
          * If true, skip xvnc launch on all Windows slaves.
          */
         public boolean skipOnWindows = true;
+
+        /**
+         * If true the XAuthority file will be placed on the slave's FS root instead of in the build's workspace.
+         */
+        public boolean xauthorityInFsRoot = false;
 
         /**
          * If true, try to clean up old processes and locks when first run.
