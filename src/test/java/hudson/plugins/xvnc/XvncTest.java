@@ -23,27 +23,40 @@
  */
 package hudson.plugins.xvnc;
 
+import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.BuildListener;
-import hudson.model.FreeStyleBuild;
-import hudson.model.Result;
 import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.Computer;
+import hudson.model.Descriptor;
+import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Hudson;
 import hudson.model.Node;
+import hudson.model.Result;
+import hudson.model.TaskListener;
 import hudson.plugins.xvnc.Xvnc.DescriptorImpl;
+import hudson.slaves.ComputerListener;
 import hudson.slaves.DumbSlave;
+import hudson.slaves.RetentionStrategy;
 import hudson.tasks.Builder;
 import hudson.util.OneShotEvent;
-
-import java.io.IOException;
-import java.util.concurrent.Future;
-import static org.junit.Assert.assertTrue;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Bug;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.TemporaryDirectoryAllocator;
+import org.jvnet.hudson.test.TestBuilder;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class XvncTest {
 
@@ -134,6 +147,118 @@ public class XvncTest {
         j.buildAndAssertSuccess(p);
     }
 
+    public void testXauthorityInWorkspace() throws Exception {
+        DumbSlave slave = j.createOnlineSlave();
+
+        FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "jobA");
+        job.setAssignedNode(slave);
+
+        runXvnc(job, true);
+
+        job.getBuildersList().add(new TestBuilder() {
+            @Override
+            public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+                FilePath[] list = build.getWorkspace().list(".Xauthority-*");
+                assertEquals("There should be one Xauthority file in the workspace", 1, list.length);
+                assertEquals(build.getWorkspace().getRemote(), list[0].getParent().getRemote());
+                return true;
+            }
+        });
+        j.buildAndAssertSuccess(job);
+
+        FilePath[] list = job.getLastBuild().getWorkspace().list(".Xauthority-*");
+        assertEquals("The Xauthority file should be removed", 0, list.length);
+    }
+
+    @Test
+    public void testXauthorityInSlaveFsRoot() throws Exception {
+        final DumbSlave slave = j.createOnlineSlave();
+
+        FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "job A");
+        job.setAssignedNode(slave);
+
+        runXvnc(job, true);
+
+        job.getBuildersList().add(new TestBuilder() {
+            @Override
+            public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+                FilePath[] list = slave.getRootPath().list(".Xauthority-*");
+                assertEquals("There should be one Xauthority file in the slave fs root", 1, list.length);
+                assertEquals(slave.getRootPath().getRemote(), list[0].getParent().getRemote());
+
+                list = build.getWorkspace().list(".Xauthority-*");
+                assertEquals("There should be no Xauthority file in the workspace", 0, list.length);
+
+                return true;
+            }
+        });
+        j.buildAndAssertSuccess(job);
+
+        FilePath[] list = slave.getRootPath().list(".Xauthority-*");
+        assertEquals("The Xauthority file should be removed", 0, list.length);
+    }
+
+    @Test
+    public void testXauthorityInTemp() throws Exception {
+        final File base = new File(System.getProperty("java.io.tmpdir"), "some bad path");
+        base.mkdirs();
+        final TemporaryDirectoryAllocator directoryAllocator = new TemporaryDirectoryAllocator(base);
+        try {
+            final DumbSlave slave = createTweakedSlave(directoryAllocator);
+            final FilePath tmpPath = new FilePath(slave.getChannel(), System.getProperty("java.io.tmpdir"));
+            FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "job A");
+            job.setAssignedNode(slave);
+
+            runXvnc(job, true);
+
+            job.getBuildersList().add(new TestBuilder() {
+                @Override
+                public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+
+                    FilePath[] list = tmpPath.list(".Xauthority-*");
+                    assertEquals("There should be one Xauthority file in tmp", 1, list.length);
+                    assertEquals(tmpPath.getRemote(), list[0].getParent().getRemote());
+
+                    list = build.getWorkspace().list(".Xauthority-*");
+                    assertEquals("There should be no Xauthority file in the workspace", 0, list.length);
+
+                    list = slave.getRootPath().list(".Xauthority-*");
+                    assertEquals("There should be no Xauthority file in the slave fs root", 0, list.length);
+
+                    return true;
+                }
+            });
+            j.buildAndAssertSuccess(job);
+
+            FilePath[] list = tmpPath.list(".Xauthority-*");
+            assertEquals("The Xauthority file should be removed", 0, list.length);
+        } finally {
+            directoryAllocator.dispose();
+        }
+    }
+
+    private DumbSlave createTweakedSlave(TemporaryDirectoryAllocator directoryAllocator) throws IOException, Descriptor.FormException, URISyntaxException, InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(1);
+        ComputerListener waiter = new ComputerListener() {
+            @Override
+            public void onOnline(Computer C, TaskListener t) {
+                latch.countDown();
+                unregister();
+            }
+        };
+        waiter.register();
+        //Create a slave manually
+        final DumbSlave slave;
+        synchronized (j.jenkins) {
+            slave = new DumbSlave("SlaveX", "dummy",
+                    directoryAllocator.allocate().getPath(), "1", Node.Mode.NORMAL, "", j.createComputerLauncher(null), RetentionStrategy.NOOP, Collections.EMPTY_LIST);
+            j.jenkins.addNode(slave);
+
+        }
+        latch.await();
+        return slave;
+    }
+
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {
         final Xvnc xvnc = new Xvnc(false, false);
         p.getBuildWrappersList().add(xvnc);
@@ -145,7 +270,11 @@ public class XvncTest {
     }
 
     private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p) throws Exception {
-        final Xvnc xvnc = new Xvnc(false, false);
+        return runXvnc(p, false);
+    }
+
+    private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p, boolean useXauthority) throws Exception {
+        final Xvnc xvnc = new Xvnc(false, useXauthority);
         p.getBuildWrappersList().add(xvnc);
         DescriptorImpl descriptor = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
         descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;

@@ -12,10 +12,12 @@ import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
@@ -25,7 +27,9 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 import javax.annotation.CheckForNull;
 
+import jenkins.MasterToSlaveFileCallable;
 import jenkins.model.Jenkins;
+import jenkins.security.MasterToSlaveCallable;
 import jenkins.tasks.SimpleBuildWrapper;
 import jenkins.util.BuildListenerAdapter;
 import net.sf.json.JSONObject;
@@ -97,18 +101,20 @@ public class Xvnc extends SimpleBuildWrapper {
         final DisplayAllocator allocator = getAllocator(node);
 
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
-        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
+        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER", String.valueOf(displayNumber)));
 
         logger.println(Messages.Xvnc_STARTING());
 
         String[] cmds = Util.tokenize(actualCmd);
 
-        final FilePath xauthority = workspace.createTempFile(".Xauthority-", "");
+        final FilePath xauthority;
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
+            xauthority = createXauthorityFile(workspace, logger);
             xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
             context.env("XAUTHORITY", xauthority.getRemote());
         } else {
+            xauthority = null;
             // Need something to identify it by for Launcher.kill in DisposerImpl.
             xauthorityEnv.put("XVNC_COOKIE", UUID.randomUUID().toString());
         }
@@ -139,20 +145,56 @@ public class Xvnc extends SimpleBuildWrapper {
         }
 
         context.env("DISPLAY", ":" + displayNumber);
-        context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority.getRemote()));
+        context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority != null ? xauthority.getRemote() : null));
     }
-    
+
+    /**
+     * Attempts to find a suitable place for the Xauthority file where the path to it doesn't contain any spaces.
+     * The order of tries is the workspace, the slave's fs root and last the system temp dir.
+     * If the system temp dir also contains a space a warning will be printed to the log but the temp dir path will
+     * be created and returned anyways.
+     * @param workspace the build's workspace.
+     * @param logger the build's log to print the warning to.
+     * @return the path on the slave to the created temp file.
+     *
+     * @throws IOException if so
+     * @throws InterruptedException if so
+     */
+    private FilePath createXauthorityFile(FilePath workspace, final PrintStream logger) throws IOException, InterruptedException {
+        if (workspace.getRemote().indexOf(' ') < 0) {
+            //If the workspace doesn't have any spaces it is probably safe
+            return workspace.createTempFile(".Xauthority-", "");
+        } else {
+            //Try the fs root
+            Computer computer = workspace.toComputer();
+            Node node = computer.getNode();
+            FilePath rootPath = node.getRootPath();
+            if (rootPath.getRemote().indexOf(' ') < 0) {
+                return rootPath.createTempFile(".Xauthority-", "");
+            } else {
+                FilePath file = workspace.createTextTempFile(".Xauthority-", "", "", false);
+                if (file.getRemote().indexOf(' ') >= 0) {
+                    logger.println("WARNING! Could not find somewhere to place the Xauthirity file not containing a space in the path.");
+                }
+                return file;
+            }
+        }
+
+    }
+
     private static class DisposerImpl extends Disposer {
         
         private static final long serialVersionUID = 1;
         
         private final int displayNumber;
         private final Map<String,String> xauthorityEnv;
-        private final @CheckForNull String vncserverCommand;
+        @CheckForNull
+        private final String vncserverCommand;
         private final boolean takeScreenshot;
+        @CheckForNull
         private final String xauthorityPath;
 
-        DisposerImpl(int displayNumber, Map<String,String> xauthorityEnv, @CheckForNull String vncserverCommand, boolean takeScreenshot, String xauthorityPath) {
+        DisposerImpl(int displayNumber, Map<String,String> xauthorityEnv, @CheckForNull String vncserverCommand, boolean takeScreenshot, @CheckForNull String xauthorityPath) {
             this.displayNumber = displayNumber;
             this.xauthorityEnv = xauthorityEnv;
             this.vncserverCommand = vncserverCommand;
@@ -188,7 +230,9 @@ public class Xvnc extends SimpleBuildWrapper {
                 throw new AbortException("No node recognized for " + workspace);
             }
             getAllocator(node).free(displayNumber);
-            workspace.child(xauthorityPath).delete();
+            if (xauthorityPath != null) {
+                new FilePath(workspace.toComputer().getChannel(), xauthorityPath).delete();
+            }
         }
     }
 
