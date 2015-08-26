@@ -17,9 +17,5 @@
       <f:checkbox/>
       <label class="attach-previous">${%Clean up before start}</label>
     </f:entry>
-    <f:entry field="xauthorityInFsRoot">
-      <f:checkbox/>
-      <label class="attach-previous">${%XAuthority file in slave FS root}</label>
-    </f:entry>
   </f:section>
 </j:jelly>

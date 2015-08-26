@@ -23,7 +23,6 @@
  */
 package hudson.plugins.xvnc;
 
-import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
@@ -39,17 +38,12 @@ import hudson.util.OneShotEvent;
 
 import java.io.IOException;
 import java.util.concurrent.Future;
-
-import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Bug;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.TestBuilder;
 
 public class XvncTest {
 
@@ -140,75 +134,6 @@ public class XvncTest {
         j.buildAndAssertSuccess(p);
     }
 
-    @Test
-    public void testXauthorityInFsRootFalse() throws Exception {
-        DumbSlave slaveA = j.createOnlineSlave();
-
-        FreeStyleProject jobA = j.jenkins.createProject(FreeStyleProject.class, "jobA");
-        jobA.setAssignedNode(slaveA);
-        runXvnc(jobA, true).xauthorityInFsRoot = false;
-
-        jobA.getBuildersList().add(new TestBuilder() {
-            @Override
-            public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-                FilePath[] list = build.getWorkspace().list(".Xauthority-*");
-                assertEquals("There should be one Xauthority file", 1, list.length);
-                assertEquals(build.getWorkspace().getRemote(), list[0].getParent().getRemote());
-                return true;
-            }
-        });
-        j.buildAndAssertSuccess(jobA);
-
-        FilePath[] list = jobA.getLastBuild().getWorkspace().list(".Xauthority-*");
-        assertEquals("The Xauthority file should be removed", 0, list.length);
-    }
-
-    @Test
-    public void testXauthorityInFsRootTrue() throws Exception {
-        DumbSlave slaveA = j.createOnlineSlave();
-
-        FreeStyleProject jobA = j.jenkins.createProject(FreeStyleProject.class, "jobA");
-        jobA.setAssignedNode(slaveA);
-        runXvnc(jobA, true).xauthorityInFsRoot = true;
-
-        jobA.getBuildersList().add(new TestBuilder() {
-            @Override
-            public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-                FilePath rootPath = build.getWorkspace().toComputer().getNode().getRootPath();
-                FilePath[] list = rootPath.list(".Xauthority-*");
-                assertEquals("There should be one Xauthority file", 1, list.length);
-                assertEquals(rootPath.getRemote(), list[0].getParent().getRemote());
-
-                list = build.getWorkspace().list(".Xauthority-*");
-                assertEquals("There should be no Xauthority files in the workspace", 0, list.length);
-
-                return true;
-            }
-        });
-        j.buildAndAssertSuccess(jobA);
-
-        FilePath[] list = slaveA.getRootPath().list(".Xauthority-*");
-        assertEquals("The Xauthority file should be removed", 0, list.length);
-    }
-
-    @Test
-    public void testGlobalConfigRoundtrip() throws Exception {
-        DescriptorImpl descriptor = j.jenkins.getDescriptorByType(DescriptorImpl.class);
-        descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
-        descriptor.xvnc = "true";
-        descriptor.xauthorityInFsRoot = true;
-        descriptor.skipOnWindows = true;
-
-        j.configRoundtrip();
-
-        descriptor = j.jenkins.getDescriptorByType(DescriptorImpl.class);
-
-        assertEquals(42, descriptor.maxDisplayNumber);
-        assertEquals("true", descriptor.xvnc);
-        assertTrue(descriptor.xauthorityInFsRoot);
-        assertTrue(descriptor.skipOnWindows);
-    }
-
     private Xvnc fakeXvncRun(FreeStyleProject p) throws Exception {
         final Xvnc xvnc = new Xvnc(false, false);
         p.getBuildWrappersList().add(xvnc);
@@ -220,11 +145,7 @@ public class XvncTest {
     }
 
     private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p) throws Exception {
-        return runXvnc(p, false);
-    }
-
-    private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p, boolean useXauthority) throws Exception {
-        final Xvnc xvnc = new Xvnc(false, useXauthority);
+        final Xvnc xvnc = new Xvnc(false, false);
         p.getBuildWrappersList().add(xvnc);
         DescriptorImpl descriptor = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
         descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
