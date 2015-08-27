@@ -174,7 +174,7 @@ public class Xvnc extends SimpleBuildWrapper {
             } else {
                 FilePath file = workspace.createTextTempFile(".Xauthority-", "", "", false);
                 if (file.getRemote().indexOf(' ') >= 0) {
-                    logger.println("WARNING! Could not find somewhere to place the Xauthirity file not containing a space in the path.");
+                    logger.println("WARNING! Could not find somewhere to place the Xauthority file not containing a space in the path.");
                 }
                 return file;
             }
