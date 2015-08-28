@@ -44,6 +44,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends SimpleBuildWrapper {
+    private static final String XAUTHORITY_ENV = "XAUTHORITY";
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
@@ -110,9 +111,14 @@ public class Xvnc extends SimpleBuildWrapper {
         final FilePath xauthority;
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
-            xauthority = createXauthorityFile(workspace, logger);
-            xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
-            context.env("XAUTHORITY", xauthority.getRemote());
+            xauthority = createXauthorityFile(workspace, logger);            
+            String xauthorityPath = xauthority.getRemote();
+            xauthorityEnv.put(XAUTHORITY_ENV, xauthorityPath);
+            if (context.getEnv().containsKey(XAUTHORITY_ENV)) {
+                //We are probably doing a retry and context will complain if we try to set it again
+                context.getEnv().remove(XAUTHORITY_ENV);
+            }
+            context.env(XAUTHORITY_ENV, xauthorityPath);
         } else {
             xauthority = null;
             // Need something to identify it by for Launcher.kill in DisposerImpl.
