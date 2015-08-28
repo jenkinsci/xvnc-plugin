@@ -41,6 +41,8 @@ import hudson.slaves.DumbSlave;
 import hudson.slaves.RetentionStrategy;
 import hudson.tasks.Builder;
 import hudson.util.OneShotEvent;
+import org.hamcrest.Matchers;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Bug;
@@ -55,8 +57,11 @@ import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeThat;
 
 public class XvncTest {
 
@@ -148,6 +153,8 @@ public class XvncTest {
     }
 
     public void testXauthorityInWorkspace() throws Exception {
+        assumeThat("java.io.tmpdir can't have spaces for this test to work properly",
+                System.getProperty("java.io.tmpdir"), not(containsString(" ")));
         DumbSlave slave = j.createOnlineSlave();
 
         FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "jobA");
@@ -172,6 +179,8 @@ public class XvncTest {
 
     @Test
     public void testXauthorityInSlaveFsRoot() throws Exception {
+        assumeThat("java.io.tmpdir can't have spaces for this test to work properly",
+                System.getProperty("java.io.tmpdir"), not(containsString(" ")));
         final DumbSlave slave = j.createOnlineSlave();
 
         FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "job A");
