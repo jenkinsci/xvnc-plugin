@@ -178,6 +178,7 @@ public class Xvnc extends SimpleBuildWrapper {
             if (rootPath.getRemote().indexOf(' ') < 0) {
                 return rootPath.createTempFile(".Xauthority-", "");
             } else {
+                //TODO other system users (not jobs) could potentially read this file, follow up fix in core probably needed.
                 FilePath file = workspace.createTextTempFile(".Xauthority-", "", "", false);
                 if (file.getRemote().indexOf(' ') >= 0) {
                     logger.println("WARNING! Could not find somewhere to place the Xauthority file not containing a space in the path.");
