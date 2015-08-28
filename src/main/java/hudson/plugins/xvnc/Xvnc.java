@@ -40,6 +40,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author Kohsuke Kawaguchi
  */
 public class Xvnc extends SimpleBuildWrapper {
+    private static final String XAUTHORITY_ENV = "XAUTHORITY";
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
@@ -97,7 +98,7 @@ public class Xvnc extends SimpleBuildWrapper {
         final DisplayAllocator allocator = getAllocator(node);
 
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
-        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER",String.valueOf(displayNumber)));
+        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER", String.valueOf(displayNumber)));
 
         logger.println(Messages.Xvnc_STARTING());
 
@@ -106,8 +107,13 @@ public class Xvnc extends SimpleBuildWrapper {
         final FilePath xauthority = workspace.createTempFile(".Xauthority-", "");
         final Map<String,String> xauthorityEnv = new HashMap<String, String>();
         if (useXauthority) {
-            xauthorityEnv.put("XAUTHORITY", xauthority.getRemote());
-            context.env("XAUTHORITY", xauthority.getRemote());
+            String xauthorityPath = xauthority.getRemote();
+            xauthorityEnv.put(XAUTHORITY_ENV, xauthorityPath);
+            if (context.getEnv().containsKey(XAUTHORITY_ENV)) {
+                //We are probably doing a retry and context will complain if we try to set it again
+                context.getEnv().remove(XAUTHORITY_ENV);
+            }
+            context.env(XAUTHORITY_ENV, xauthorityPath);
         } else {
             // Need something to identify it by for Launcher.kill in DisposerImpl.
             xauthorityEnv.put("XVNC_COOKIE", UUID.randomUUID().toString());
