@@ -32,6 +32,7 @@ import jenkins.model.Jenkins;
 import jenkins.security.MasterToSlaveCallable;
 import jenkins.tasks.SimpleBuildWrapper;
 import jenkins.util.BuildListenerAdapter;
+import net.jcip.annotations.GuardedBy;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -64,7 +65,8 @@ public class Xvnc extends SimpleBuildWrapper {
     public void setUp(Context context, Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener, EnvVars initialEnvironment)
             throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
-        DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
+        final Jenkins jenkins = Jenkins.getActiveInstance();
+        DescriptorImpl DESCRIPTOR = jenkins.getDescriptorByType(DescriptorImpl.class);
 
         // skip xvnc execution
         Computer c = workspace.toComputer();
@@ -72,7 +74,7 @@ public class Xvnc extends SimpleBuildWrapper {
         if (node == null) {
             throw new AbortException("No node recognized for " + workspace);
         }
-        if (node.getAssignedLabels().contains(Jenkins.getInstance().getLabelAtom("noxvnc"))
+        if (node.getAssignedLabels().contains(jenkins.getLabelAtom("noxvnc"))
                 || node.getNodeProperties().get(NodePropertyImpl.class) != null) {
             return;
         }
@@ -173,18 +175,21 @@ public class Xvnc extends SimpleBuildWrapper {
         } else {
             //Try the fs root
             Computer computer = workspace.toComputer();
-            Node node = computer.getNode();
-            FilePath rootPath = node.getRootPath();
-            if (rootPath.getRemote().indexOf(' ') < 0) {
-                return rootPath.createTempFile(".Xauthority-", "");
-            } else {
-                //TODO other system users (not jobs) could potentially read this file, follow up fix in core probably needed.
-                FilePath file = workspace.createTextTempFile(".Xauthority-", "", "", false);
-                if (file.getRemote().indexOf(' ') >= 0) {
-                    logger.println("WARNING! Could not find somewhere to place the Xauthority file not containing a space in the path.");
+            if (computer != null) {
+                Node node = computer.getNode();
+                if (node != null) {
+                    FilePath rootPath = node.getRootPath();
+                    if (rootPath != null && rootPath.getRemote().indexOf(' ') < 0) {
+                        return rootPath.createTempFile(".Xauthority-", "");
+                    }
                 }
-                return file;
             }
+            //TODO other system users (not jobs) could potentially read this file, follow up fix in core probably needed.
+            FilePath file = workspace.createTextTempFile(".Xauthority-", "", "", false);
+            if (file.getRemote().indexOf(' ') >= 0) {
+                logger.println("WARNING! Could not find somewhere to place the Xauthority file not containing a space in the path.");
+            }
+            return file;
         }
 
     }
@@ -238,21 +243,26 @@ public class Xvnc extends SimpleBuildWrapper {
             }
             getAllocator(node).free(displayNumber);
             if (xauthorityPath != null) {
-                new FilePath(workspace.toComputer().getChannel(), xauthorityPath).delete();
+                final Computer computer = workspace.toComputer();
+                if (computer != null) {
+                    new FilePath(computer.getChannel(), xauthorityPath).delete();
+                }
             }
         }
     }
 
     private static DisplayAllocator getAllocator(Node node) throws IOException {
-        DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
+        DescriptorImpl DESCRIPTOR = Jenkins.getActiveInstance().getDescriptorByType(DescriptorImpl.class);
         String name = node.getNodeName();
-        DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
-        if (allocator == null) {
-            allocator = new DisplayAllocator();
-            allocator.owner = DESCRIPTOR;
-            DESCRIPTOR.allocators.put(name, allocator);
+        synchronized (DESCRIPTOR) {
+            DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
+            if (allocator == null) {
+                allocator = new DisplayAllocator();
+                allocator.owner = DESCRIPTOR;
+                DESCRIPTOR.allocators.put(name, allocator);
+            }
+            return allocator;
         }
-        return allocator;
     }
 
     /**
@@ -307,6 +317,7 @@ public class Xvnc extends SimpleBuildWrapper {
         public boolean cleanUp = false;
 
         // TODO this might cause excessive traffic in SaveableListener; really want a Jenkins API for a Saveable of nonversionable runtime state (cloud slaves, etc.)
+        @GuardedBy("this") // load and save are synchronized
         private Map<String,DisplayAllocator> allocators;
 
         public DescriptorImpl() {
