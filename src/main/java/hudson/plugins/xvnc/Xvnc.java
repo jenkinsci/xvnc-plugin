@@ -32,6 +32,7 @@ import jenkins.model.Jenkins;
 import jenkins.security.MasterToSlaveCallable;
 import jenkins.tasks.SimpleBuildWrapper;
 import jenkins.util.BuildListenerAdapter;
+import net.jcip.annotations.GuardedBy;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -246,13 +247,15 @@ public class Xvnc extends SimpleBuildWrapper {
     private static DisplayAllocator getAllocator(Node node) throws IOException {
         DescriptorImpl DESCRIPTOR = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
         String name = node.getNodeName();
-        DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
-        if (allocator == null) {
-            allocator = new DisplayAllocator();
-            allocator.owner = DESCRIPTOR;
-            DESCRIPTOR.allocators.put(name, allocator);
+        synchronized (DESCRIPTOR) {
+            DisplayAllocator allocator = DESCRIPTOR.allocators.get(name);
+            if (allocator == null) {
+                allocator = new DisplayAllocator();
+                allocator.owner = DESCRIPTOR;
+                DESCRIPTOR.allocators.put(name, allocator);
+            }
+            return allocator;
         }
-        return allocator;
     }
 
     /**
@@ -307,6 +310,7 @@ public class Xvnc extends SimpleBuildWrapper {
         public boolean cleanUp = false;
 
         // TODO this might cause excessive traffic in SaveableListener; really want a Jenkins API for a Saveable of nonversionable runtime state (cloud slaves, etc.)
+        @GuardedBy("this") // load and save are synchronized
         private Map<String,DisplayAllocator> allocators;
 
         public DescriptorImpl() {
