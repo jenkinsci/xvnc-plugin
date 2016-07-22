@@ -9,7 +9,7 @@
   <artifactId>xvnc</artifactId>
   <packaging>hpi</packaging>
   <name>Jenkins Xvnc plugin</name>
-  <version>1.24-SNAPSHOT</version>
+  <version>1.24</version>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Xvnc+Plugin</url>
   <developers>
     <developer>
@@ -33,7 +33,7 @@
     <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
     <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
-    <tag>HEAD</tag>
+    <tag>xvnc-1.24</tag>
   </scm>
   <properties>
     <jenkins.version>1.609.1</jenkins.version>
