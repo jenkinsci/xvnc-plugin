@@ -63,7 +63,7 @@ public class XvncWorkflowTest {
                 step = new StepConfigTester(story.j).configRoundTrip(step);
                 story.j.assertEqualDataBoundBeans(xvnc, step.getDelegate());
                 xvnc = new Xvnc();
-                DescribableModel<Xvnc> model = new DescribableModel<>(Xvnc.class);
+                DescribableModel<Xvnc> model = new DescribableModel<Xvnc>(Xvnc.class);
                 Map<String,Object> args = model.uninstantiate(xvnc);
                 assertEquals(Collections.emptyMap(), args);
                 story.j.assertEqualDataBoundBeans(xvnc, model.instantiate(args));
