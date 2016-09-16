@@ -29,7 +29,8 @@ import hudson.slaves.DumbSlave;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.RetentionStrategy;
 import java.util.Collections;
-import org.jenkinsci.plugins.workflow.JenkinsRuleExt;
+import java.util.Map;
+import org.jenkinsci.plugins.structs.describable.DescribableModel;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -38,23 +39,34 @@ import org.jenkinsci.plugins.workflow.steps.StepConfigTester;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runners.model.Statement;
+import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
 
 public class XvncWorkflowTest {
 
+    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
     @Test public void configRoundTrip() {
         story.addStep(new Statement() {
+            @SuppressWarnings("deprecation") // uninstantiate fine for now
             @Override public void evaluate() throws Throwable {
-                Xvnc xvnc = new Xvnc(true, false);
+                Xvnc xvnc = new Xvnc();
+                xvnc.takeScreenshot = true;
+                xvnc.useXauthority = false;
                 CoreWrapperStep step = new CoreWrapperStep(xvnc);
                 step = new StepConfigTester(story.j).configRoundTrip(step);
                 story.j.assertEqualDataBoundBeans(xvnc, step.getDelegate());
+                xvnc = new Xvnc();
+                DescribableModel<Xvnc> model = new DescribableModel<>(Xvnc.class);
+                Map<String,Object> args = model.uninstantiate(xvnc);
+                assertEquals(Collections.emptyMap(), args);
+                story.j.assertEqualDataBoundBeans(xvnc, model.instantiate(args));
             }
         });
     }
@@ -83,7 +95,7 @@ public class XvncWorkflowTest {
                 assertNotNull(p);
                 WorkflowRun b = p.getBuildByNumber(1);
                 assertNotNull(b);
-                story.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(b));
+                story.j.assertBuildStatusSuccess(story.j.waitForCompletion(b));
                 story.j.assertLogContains("DISPLAY=:", b);
             }
         });
