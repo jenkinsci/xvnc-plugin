@@ -6,7 +6,7 @@
   </f:entry>
 
   <f:entry field="useXauthority">
-      <f:checkbox checked="${instance == null || instance.useXauthority}"/>
+      <f:checkbox default="true"/>
         <label class="attach-previous">${%Create a dedicated Xauthority file per build?}</label>
   </f:entry>
 </j:jelly>

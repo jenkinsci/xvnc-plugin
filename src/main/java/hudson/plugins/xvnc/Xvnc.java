@@ -12,12 +12,10 @@ import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.FormValidation;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collections;
@@ -27,15 +25,15 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 import javax.annotation.CheckForNull;
 
-import jenkins.MasterToSlaveFileCallable;
 import jenkins.model.Jenkins;
-import jenkins.security.MasterToSlaveCallable;
 import jenkins.tasks.SimpleBuildWrapper;
 import jenkins.util.BuildListenerAdapter;
 import net.jcip.annotations.GuardedBy;
 import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -49,13 +47,18 @@ public class Xvnc extends SimpleBuildWrapper {
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
+    @DataBoundSetter
     public boolean takeScreenshot;
 
-    public Boolean useXauthority;
+    @DataBoundSetter
+    public Boolean useXauthority = true;
 
     private static final String FILENAME_SCREENSHOT = "screenshot.jpg";
 
     @DataBoundConstructor
+    public Xvnc() {}
+
+    @Deprecated
     public Xvnc(boolean takeScreenshot, boolean useXauthority) {
         this.takeScreenshot = takeScreenshot;
         this.useXauthority = useXauthority;
@@ -287,6 +290,7 @@ public class Xvnc extends SimpleBuildWrapper {
     }
 
     @Extension
+    @Symbol("xvnc")
     public static final class DescriptorImpl extends BuildWrapperDescriptor {
 
         /**
