@@ -49,6 +49,9 @@ public class Xvnc extends SimpleBuildWrapper {
      */
     @DataBoundSetter
     public boolean takeScreenshot;
+	
+	@DataBoundSetter
+    public String additionalArgs = null;
 
     @DataBoundSetter
     public Boolean useXauthority = true;
@@ -92,7 +95,7 @@ public class Xvnc extends SimpleBuildWrapper {
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         if (cmd == null) {
-            cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
+            cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp " + (this.additionalArgs != null ? this.additionalArgs : "");
         }
 
         workspace.mkdirs();
