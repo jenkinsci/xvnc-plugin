@@ -97,7 +97,7 @@ public class Xvnc extends SimpleBuildWrapper {
         if (cmd == null) {
             cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp " + (this.additionalArgs != null ? this.additionalArgs : "");
         } else {
-            DESCRIPTOR.xvnc += " " + (this.additionalArgs != null ? this.additionalArgs : "");
+            cmd = DESCRIPTOR.xvnc + " " + (this.additionalArgs != null ? this.additionalArgs : "");
         }
 
         workspace.mkdirs();
