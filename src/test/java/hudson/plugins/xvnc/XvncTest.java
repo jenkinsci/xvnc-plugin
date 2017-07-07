@@ -39,6 +39,7 @@ import hudson.plugins.xvnc.Xvnc.DescriptorImpl;
 import hudson.slaves.ComputerListener;
 import hudson.slaves.DumbSlave;
 import hudson.slaves.RetentionStrategy;
+import hudson.tasks.BuildWrapper;
 import hudson.tasks.Builder;
 import hudson.util.OneShotEvent;
 import org.hamcrest.Matchers;
@@ -102,6 +103,21 @@ public class XvncTest {
     }
 
     @Test
+    public void takeScreenshot() throws Exception {
+        FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
+
+        runXvnc(p, true, false).cleanUp = true;
+        j.configRoundtrip(p);
+        p = j.jenkins.getItemByFullName("project", FreeStyleProject.class);
+        Xvnc wrapper = (Xvnc) p.getBuildWrappers().get(j.jenkins.getDescriptorByType(DescriptorImpl.class));
+
+        assertTrue("Take screenshot should still be enabled.", wrapper.takeScreenshot);
+
+        final FreeStyleBuild build = j.buildAndAssertSuccess(p);
+        j.assertLogContains(Messages.Xvnc_TAKING_SCREENSHOT(), build);
+    }
+
+    @Test
     public void displayBlacklistedOnOneMachineShouldNotBeBlacklistedOnAnother() throws Exception {
         DumbSlave slaveA = j.createOnlineSlave();
         DumbSlave slaveB = j.createOnlineSlave();
@@ -152,6 +168,7 @@ public class XvncTest {
         j.buildAndAssertSuccess(p);
     }
 
+    @Test
     public void testXauthorityInWorkspace() throws Exception {
         assumeThat("java.io.tmpdir can't have spaces for this test to work properly",
                 System.getProperty("java.io.tmpdir"), not(containsString(" ")));
@@ -215,6 +232,12 @@ public class XvncTest {
         try {
             final DumbSlave slave = createTweakedSlave(directoryAllocator);
             final FilePath tmpPath = new FilePath(slave.getChannel(), System.getProperty("java.io.tmpdir"));
+            final FilePath[] initialFiles = tmpPath.list(".Xauthority-*");
+            if (initialFiles.length > 0) {
+                for (FilePath file : initialFiles) {
+                    file.delete();
+                }
+            }
             FreeStyleProject job = j.jenkins.createProject(FreeStyleProject.class, "job A");
             job.setAssignedNode(slave);
 
@@ -283,9 +306,13 @@ public class XvncTest {
     }
 
     private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p, boolean useXauthority) throws Exception {
-        final Xvnc xvnc = new Xvnc(false, useXauthority);
+        return runXvnc(p, false, useXauthority);
+    }
+
+    private Xvnc.DescriptorImpl runXvnc(FreeStyleProject p, boolean takeScreenShot, boolean useXauthority) throws Exception {
+        final Xvnc xvnc = new Xvnc(takeScreenShot, useXauthority);
         p.getBuildWrappersList().add(xvnc);
-        DescriptorImpl descriptor = Hudson.getInstance().getDescriptorByType(DescriptorImpl.class);
+        DescriptorImpl descriptor = j.jenkins.getDescriptorByType(DescriptorImpl.class);
         descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
         descriptor.xvnc = null;
         return descriptor;
