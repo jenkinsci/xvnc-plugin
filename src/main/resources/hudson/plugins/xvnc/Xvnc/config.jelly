@@ -9,4 +9,9 @@
       <f:checkbox default="true"/>
         <label class="attach-previous">${%Create a dedicated Xauthority file per build?}</label>
   </f:entry>
+  
+  <f:entry field="additionalArgs">
+      <f:textbox />
+      <label class="attach-previous">${%Additional command line arguments:}</label>
+  </f:entry>
 </j:jelly>
