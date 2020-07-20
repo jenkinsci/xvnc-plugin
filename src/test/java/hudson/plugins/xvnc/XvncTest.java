@@ -55,6 +55,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 
@@ -138,11 +139,14 @@ public class XvncTest {
         jobB.setAssignedNode(slaveB);
 
         // blacklist :42 on slaveA
-        runXvnc(jobA).xvnc = "vncserver-broken :$DISPLAY_NUMBER";
+        DescriptorImpl descriptor = runXvnc(jobA);
+        descriptor.xvnc = "vncserver-broken :$DISPLAY_NUMBER";
+        descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
         j.assertBuildStatus(Result.FAILURE, jobA.scheduleBuild2(0).get());
 
         // use :42 on slaveB
-        runXvnc(jobB).cleanUp = true;
+        descriptor.cleanUp = true;
+        descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
         j.buildAndAssertSuccess(jobB);
     }
 
@@ -323,7 +327,7 @@ public class XvncTest {
         final Xvnc xvnc = new Xvnc(takeScreenShot, useXauthority);
         p.getBuildWrappersList().add(xvnc);
         DescriptorImpl descriptor = j.jenkins.getDescriptorByType(DescriptorImpl.class);
-        descriptor.maxDisplayNumber = descriptor.minDisplayNumber = 42;
+        descriptor.maxDisplayNumber = descriptor.minDisplayNumber = new Random().nextInt(50) + 1;
         descriptor.xvnc = null;
         return descriptor;
     }
