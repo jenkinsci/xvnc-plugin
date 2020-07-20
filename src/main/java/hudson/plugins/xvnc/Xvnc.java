@@ -1,5 +1,6 @@
 package hudson.plugins.xvnc;
 
+import com.google.common.collect.ImmutableMap;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -44,6 +45,7 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class Xvnc extends SimpleBuildWrapper {
     private static final String XAUTHORITY_ENV = "XAUTHORITY";
+    public static final String VNCSERVER = "vncserver";
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
@@ -92,7 +94,7 @@ public class Xvnc extends SimpleBuildWrapper {
 
         String cmd = Util.nullify(DESCRIPTOR.xvnc);
         if (cmd == null) {
-            cmd = "vncserver :$DISPLAY_NUMBER -localhost -nolisten tcp";
+            cmd = "$VNC_COMMAND :$DISPLAY_NUMBER -localhost -nolisten tcp";
         }
 
         workspace.mkdirs();
@@ -105,9 +107,13 @@ public class Xvnc extends SimpleBuildWrapper {
                     throws IOException, InterruptedException {
 
         final DisplayAllocator allocator = getAllocator(node);
-
         final int displayNumber = allocator.allocate(minDisplayNumber, maxDisplayNumber);
-        final String actualCmd = Util.replaceMacro(cmd, Collections.singletonMap("DISPLAY_NUMBER", String.valueOf(displayNumber)));
+
+        final String actualCmd = Util.replaceMacro(cmd, ImmutableMap.of(
+                "DISPLAY_NUMBER", String.valueOf(displayNumber),
+                "VNC_COMMAND", detectXvncCommand(workspace, launcher)
+        ));
+
 
         logger.println(Messages.Xvnc_STARTING());
 
@@ -132,7 +138,7 @@ public class Xvnc extends SimpleBuildWrapper {
 
         final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(workspace).start();
         final String vncserverCommand;
-        if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
+        if (cmds[0].endsWith(VNCSERVER) && cmd.contains(":$DISPLAY_NUMBER")) {
             // Command just started the server; -kill will stop it.
             vncserverCommand = cmds[0];
             int exit = proc.join();
@@ -157,6 +163,23 @@ public class Xvnc extends SimpleBuildWrapper {
 
         context.env("DISPLAY", ":" + displayNumber);
         context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority != null ? xauthority.getRemote() : null));
+    }
+
+    // vncserver was the default choice for years. Use it if it is present, fallback to Xvnc if that is present, use
+    // vncserver if all that fails to error in a predictable way.
+    private String detectXvncCommand(FilePath workspace, Launcher launcher) throws InterruptedException {
+
+        try {
+            launcher.launch().cmds(VNCSERVER, "-list").pwd(workspace).join();
+            return VNCSERVER;
+        } catch (IOException ex) {
+            try {
+                launcher.launch().cmds("Xvnc", "-help").pwd(workspace).join();
+            } catch (IOException exx) {
+                return VNCSERVER;
+            }
+            return "Xvnc";
+        }
     }
 
     /**
@@ -224,8 +247,7 @@ public class Xvnc extends SimpleBuildWrapper {
                 try {
                     launcher.launch().cmds("echo", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
                     launcher.launch().cmds("ls", "-l", "$XAUTHORITY").envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
-                    launcher.launch().cmds("import", "-window", "root", "-display", ":" + displayNumber, FILENAME_SCREENSHOT).
-                            envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    captureScreenshot(workspace, launcher, logger);
                     build.getArtifactManager().archive(workspace, launcher, new BuildListenerAdapter(listener), Collections.singletonMap(FILENAME_SCREENSHOT, FILENAME_SCREENSHOT));
                 } catch (Exception x) {
                     x.printStackTrace(logger);
@@ -251,6 +273,32 @@ public class Xvnc extends SimpleBuildWrapper {
                     new FilePath(computer.getChannel(), xauthorityPath).delete();
                 }
             }
+        }
+
+        // Use several means to capture screenshot, fail if none worked
+        private void captureScreenshot(FilePath workspace, Launcher launcher, PrintStream logger) throws IOException, InterruptedException {
+            String display = ":" + displayNumber;
+            String[][] commandSets = {
+                    { "import", "-window", "root", "-display", display, FILENAME_SCREENSHOT },
+                    { "gnome-screenshot", "--display", display, "--file", FILENAME_SCREENSHOT }
+            };
+
+            IOException err = null;
+            for (String[] commandSet : commandSets) {
+                try {
+                    launcher.launch().cmds(commandSet).envs(xauthorityEnv).stdout(logger).pwd(workspace).join();
+                    return;
+                } catch (InterruptedException ex) {
+                    throw ex;
+                } catch (Exception ex) {
+                    if (err == null) {
+                        err = new IOException("Failed to capture screenshot");
+                    }
+                    err.addSuppressed(ex);
+                }
+            }
+
+            throw err;
         }
     }
 
