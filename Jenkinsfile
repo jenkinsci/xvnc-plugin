@@ -1,5 +1,11 @@
 #!/usr/bin/env groovy
 
-/* `buildPlugin` step provided by: https://github.com/jenkins-infra/pipeline-library */
-// There is no need to test this on Windows as the plugins is not supposed to be used there
-buildPlugin(platforms: ["linux"])
+node('docker') {
+    docker.image('jenkins/ath:acceptance-test-harness-1.73').inside {
+        stage('test') {
+            checkout scm
+            sh 'mvn -B --no-transfer-progress clean package'
+            junit '**/target/surefire-reports/TEST-*.xml'
+        }
+    }
+}
