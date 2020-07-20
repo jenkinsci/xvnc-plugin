@@ -118,6 +118,16 @@ public class XvncTest {
     }
 
     @Test
+    public void vncCommandVariable() throws Exception {
+        FreeStyleProject p = j.jenkins.createProject(FreeStyleProject.class, "project");
+
+        runXvnc(p, true, false).xvnc = "$VNC_COMMAND -nocursor :$DISPLAY_NUMBER";
+
+        FreeStyleBuild build = j.buildAndAssertSuccess(p);
+        j.assertLogContains(" -nocursor :", build);
+    }
+
+    @Test
     public void displayBlacklistedOnOneMachineShouldNotBeBlacklistedOnAnother() throws Exception {
         DumbSlave slaveA = j.createOnlineSlave();
         DumbSlave slaveB = j.createOnlineSlave();
