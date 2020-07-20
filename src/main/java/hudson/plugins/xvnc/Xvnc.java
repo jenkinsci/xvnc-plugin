@@ -173,13 +173,16 @@ public class Xvnc extends SimpleBuildWrapper {
             launcher.launch().cmds(VNCSERVER, "-list").pwd(workspace).join();
             return VNCSERVER;
         } catch (IOException ex) {
-            try {
-                launcher.launch().cmds("Xvnc", "-help").pwd(workspace).join();
-            } catch (IOException exx) {
-                return VNCSERVER;
-            }
-            return "Xvnc";
+            // Fallback
         }
+
+        try {
+            launcher.launch().cmds("Xvnc", "-help").pwd(workspace).join();
+            return "Xvnc";
+        } catch (IOException exx) {
+            // Fallback
+        }
+        return VNCSERVER;
     }
 
     /**
