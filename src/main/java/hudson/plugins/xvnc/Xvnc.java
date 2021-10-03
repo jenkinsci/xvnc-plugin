@@ -45,7 +45,6 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class Xvnc extends SimpleBuildWrapper {
     private static final String XAUTHORITY_ENV = "XAUTHORITY";
-    public static final String VNCSERVER = "vncserver";
     /**
      * Whether or not to take a screenshot upon completion of the build.
      */
@@ -138,13 +137,13 @@ public class Xvnc extends SimpleBuildWrapper {
 
         final Proc proc = launcher.launch().cmds(cmds).envs(xauthorityEnv).stdout(logger).pwd(workspace).start();
         final String vncserverCommand;
-        if (cmds[0].endsWith(VNCSERVER) && cmd.contains(":$DISPLAY_NUMBER")) {
-            // Command just started the server; -kill will stop it.
+        if (cmds[0].endsWith("vncserver") && cmd.contains(":$DISPLAY_NUMBER")) {
+            // vncserver command starts the server in the background; -kill will stop it.
             vncserverCommand = cmds[0];
             int exit = proc.join();
             if (exit != 0) {
                 // XXX I18N
-                String message = "Failed to run \'" + actualCmd + "\' (exit code " + exit + "), blacklisting display #" + displayNumber +
+                String message = "Failed to run '" + actualCmd + "' (exit code " + exit + "), blacklisting display #" + displayNumber +
                         "; consider checking the \"Clean up before start\" option";
                 // Do not release it; it may be "stuck" until cleaned up by an administrator.
                 //allocator.free(displayNumber);
@@ -165,16 +164,9 @@ public class Xvnc extends SimpleBuildWrapper {
         context.setDisposer(new DisposerImpl(displayNumber, xauthorityEnv, vncserverCommand, takeScreenshot, xauthority != null ? xauthority.getRemote() : null));
     }
 
-    // vncserver was the default choice for years. Use it if it is present, fallback to Xvnc if that is present, use
-    // vncserver if all that fails to error in a predictable way.
+    // vncserver was the default choice for years, distributions switching to systemd activation stopped supporting it.
+    // The vncserver from tigervnc 1.11.0+ does not support needed options at all, so Xvnc is prefered
     private String detectXvncCommand(FilePath workspace, Launcher launcher) throws InterruptedException {
-
-        try {
-            launcher.launch().cmds(VNCSERVER, "-list").pwd(workspace).join();
-            return VNCSERVER;
-        } catch (IOException ex) {
-            // Fallback
-        }
 
         try {
             launcher.launch().cmds("Xvnc", "-help").pwd(workspace).join();
@@ -182,7 +174,15 @@ public class Xvnc extends SimpleBuildWrapper {
         } catch (IOException exx) {
             // Fallback
         }
-        return VNCSERVER;
+
+        try {
+            launcher.launch().cmds("vncserver", "-list").pwd(workspace).join();
+            return "vncserver";
+        } catch (IOException ex) {
+            // Fallback
+        }
+
+        return "Xvnc"; // Return default choice, so the build fails pointing out the problem
     }
 
     /**
