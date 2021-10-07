@@ -15,6 +15,7 @@ import java.util.logging.Logger;
  */
 final class DisplayAllocator {
 
+    public static final Random RANDOM = new Random();
     transient Saveable owner;
 
     /**
@@ -37,7 +38,7 @@ final class DisplayAllocator {
     }
 
     private int getRandomValue(final int min, final int max) {
-        return min + (new Random().nextInt(getRange(min, max)));
+        return min + (RANDOM.nextInt(getRange(min, max)));
     }
 
     private int getRange(final int min, final int max) {
