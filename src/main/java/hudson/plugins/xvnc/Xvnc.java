@@ -39,7 +39,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
- * {@link BuildWrapper} that runs <tt>xvnc</tt>.
+ * {@link BuildWrapper} that runs <code>xvnc</code>.
  *
  * @author Kohsuke Kawaguchi
  */
